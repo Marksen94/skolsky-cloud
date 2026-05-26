@@ -7,10 +7,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Zoznam tried
 export const CLASSES = [
-  '1A', '1C', '1T', '1G',
-  '2A', '2C', '2T', '2G',
-  '3A', '3C', '3T', '3G',
-  '4A', '4C', '4T', '4G',
+  '1.A', '1.C', '1.T', '1.G',
+  '2.A', '2.C', '2.T', '2.G',
+  '3.A', '3.C', '3.T', '3.G',
+  '4.A', '4.C', '4.T', '4.G',
 ];
 
 // Povolené typy súborov
@@ -27,7 +27,7 @@ export const ALLOWED_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ];
 
-export const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30 MB
+export const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
 export function formatFileSize(bytes) {
   if (bytes < 1024) return bytes + ' B';

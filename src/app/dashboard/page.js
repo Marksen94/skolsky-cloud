@@ -42,7 +42,7 @@ export default function Dashboard() {
     setUploadError(''); setUploadSuccess('');
     if (rejected.length > 0) {
       const err = rejected[0].errors[0];
-      if (err.code === 'file-too-large') setUploadError('Súbor je príliš veľký. Max 30 MB.');
+      if (err.code === 'file-too-large') setUploadError('Súbor je príliš veľký. Max 50 MB.');
       else if (err.code === 'file-invalid-type') setUploadError('Nepovolený typ súboru.');
       else setUploadError('Chyba: ' + err.message);
       return;
@@ -157,7 +157,7 @@ export default function Dashboard() {
             </div>
             <h3 className="font-bold text-school-navy">Nahrať nový súbor</h3>
           </div>
-          <p className="text-xs text-school-muted mb-4 ml-10">PDF, obrázky (JPG, PNG), PowerPoint, Word, Excel • max 30 MB</p>
+          <p className="text-xs text-school-muted mb-4 ml-10">PDF, obrázky (JPG, PNG), PowerPoint, Word, Excel • max 50 MB</p>
 
           <input type="text" className="input-field text-sm mb-3"
             placeholder="Popis súboru (napr. Matematika – vzorce z Kap. 5) – voliteľné"
