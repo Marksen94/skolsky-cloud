@@ -1,22 +1,21 @@
-@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Sora:wght@400;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --font-heading: 'Crimson Pro', Georgia, serif;
-  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-heading: 'Sora', system-ui, sans-serif;
+  --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
   --navy: #0D1F3C;
   --blue: #1A3A6B;
-  --accent: #C8A84B;
-  --light: #EEF2F8;
+  --accent: #C8200A;
+  --accent2: #1565C0;
+  --light: #F0F4FA;
   --muted: #6B7C96;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   font-family: var(--font-body);
@@ -25,90 +24,136 @@ body {
   min-height: 100vh;
 }
 
-h1, h2, h3, h4 {
-  font-family: var(--font-heading);
-}
+h1, h2, h3, h4 { font-family: var(--font-heading); }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: #f1f1f1; }
 ::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 3px; }
 
 @layer components {
   .btn-primary {
-    @apply bg-school-blue text-white font-medium px-6 py-3 rounded-lg
-    hover:bg-school-navy transition-all duration-200 
+    @apply bg-school-blue text-white font-semibold px-6 py-3 rounded-xl
+    hover:bg-school-navy transition-all duration-200 shadow-sm hover:shadow-md
     focus:outline-none focus:ring-2 focus:ring-school-accent focus:ring-offset-2
     disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .btn-secondary {
-    @apply bg-white text-school-blue font-medium px-6 py-3 rounded-lg
-    border border-school-blue hover:bg-school-light transition-all duration-200
+    @apply bg-white text-school-blue font-semibold px-6 py-3 rounded-xl
+    border border-school-blue/20 hover:bg-school-light transition-all duration-200 shadow-sm
     focus:outline-none focus:ring-2 focus:ring-school-blue focus:ring-offset-2;
   }
 
   .btn-danger {
-    @apply bg-red-600 text-white font-medium px-4 py-2 rounded-lg
-    hover:bg-red-700 transition-all duration-200 text-sm;
+    @apply bg-red-600 text-white font-semibold px-4 py-2 rounded-lg
+    hover:bg-red-700 transition-all duration-200 text-sm shadow-sm;
   }
 
   .btn-success {
-    @apply bg-green-600 text-white font-medium px-4 py-2 rounded-lg
-    hover:bg-green-700 transition-all duration-200 text-sm;
+    @apply bg-emerald-600 text-white font-semibold px-4 py-2 rounded-lg
+    hover:bg-emerald-700 transition-all duration-200 text-sm shadow-sm;
   }
 
   .input-field {
-    @apply w-full px-4 py-3 border border-gray-200 rounded-lg
-    focus:outline-none focus:ring-2 focus:ring-school-blue focus:border-transparent
-    bg-white text-school-navy placeholder-school-muted transition-all duration-200;
+    @apply w-full px-4 py-3 border border-gray-200 rounded-xl
+    focus:outline-none focus:ring-2 focus:ring-school-blue/30 focus:border-school-blue
+    bg-white text-school-navy placeholder-school-muted/60 transition-all duration-200
+    shadow-sm;
   }
 
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+    @apply bg-white rounded-2xl shadow-sm border border-gray-100/80 p-6;
   }
 
   .badge-pending {
-    @apply bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium;
+    @apply bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full text-xs font-semibold;
   }
   .badge-approved {
-    @apply bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium;
+    @apply bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-semibold;
   }
   .badge-rejected {
-    @apply bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium;
+    @apply bg-red-100 text-red-800 px-2.5 py-1 rounded-full text-xs font-semibold;
   }
 }
 
-/* Decorative school crest placeholder */
-.school-emblem {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), #E8C96B);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 20px rgba(200, 168, 75, 0.3);
+/* Modern gradient header */
+.school-header {
+  background: linear-gradient(135deg, #0D1F3C 0%, #1A3A6B 50%, #0D1F3C 100%);
+  position: relative;
+  overflow: hidden;
 }
 
-/* Grain overlay for depth */
-.grain::before {
+.school-header::before {
   content: '';
-  position: fixed;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  position: absolute;
+  top: -50%;
+  right: -10%;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200,32,10,0.08), transparent 70%);
   pointer-events: none;
-  z-index: 9999;
-  opacity: 0.4;
 }
 
-/* Upload dropzone */
-.dropzone-active {
-  @apply border-school-blue bg-blue-50;
+.school-header::after {
+  content: '';
+  position: absolute;
+  bottom: -60%;
+  left: -5%;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(21,101,192,0.12), transparent 70%);
+  pointer-events: none;
 }
 
-/* File card hover */
+/* Animated background for login */
+.login-bg {
+  background: linear-gradient(160deg, #0A1628 0%, #0D1F3C 40%, #1A3A6B 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.login-bg::before {
+  content: '';
+  position: absolute;
+  top: 20%;
+  left: 10%;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200,32,10,0.06), transparent 60%);
+  animation: pulse-slow 8s ease-in-out infinite;
+}
+
+.login-bg::after {
+  content: '';
+  position: absolute;
+  bottom: 10%;
+  right: 5%;
+  width: 350px;
+  height: 350px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(21,101,192,0.08), transparent 60%);
+  animation: pulse-slow 6s ease-in-out infinite reverse;
+}
+
+@keyframes pulse-slow {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.7; }
+}
+
+/* File card */
 .file-card {
-  @apply bg-white border border-gray-100 rounded-xl p-4 
-  hover:shadow-md hover:border-school-blue transition-all duration-200 cursor-pointer;
+  @apply bg-white border border-gray-100 rounded-2xl p-4
+  hover:shadow-lg hover:border-blue-200 transition-all duration-200 cursor-pointer;
 }
+
+/* Animations */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideIn { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: translateX(0); } }
+
+.animate-fade-in { animation: fadeIn 0.4s ease forwards; }
+.animate-slide-up { animation: slideUp 0.4s ease forwards; }
+.animate-slide-in { animation: slideIn 0.3s ease forwards; }

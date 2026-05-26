@@ -11,22 +11,19 @@ module.exports = {
         school: {
           navy: '#0D1F3C',
           blue: '#1A3A6B',
-          accent: '#C8A84B',
-          light: '#EEF2F8',
+          accent: '#C8200A',
+          accent2: '#1565C0',
+          light: '#F0F4FA',
           muted: '#6B7C96',
         },
       },
-      fontFamily: {
-        heading: ['var(--font-heading)'],
-        body: ['var(--font-body)'],
+      borderRadius: {
+        '2xl': '1rem',
+        '3xl': '1.5rem',
       },
-      animation: {
-        'fade-in': 'fadeIn 0.5s ease forwards',
-        'slide-up': 'slideUp 0.4s ease forwards',
-      },
-      keyframes: {
-        fadeIn: { from: { opacity: 0 }, to: { opacity: 1 } },
-        slideUp: { from: { opacity: 0, transform: 'translateY(20px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
+      boxShadow: {
+        'card': '0 2px 16px rgba(13,31,60,0.08)',
+        'card-hover': '0 8px 32px rgba(13,31,60,0.14)',
       },
     },
   },
