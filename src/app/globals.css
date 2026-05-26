@@ -1,0 +1,114 @@
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-heading: 'Crimson Pro', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --navy: #0D1F3C;
+  --blue: #1A3A6B;
+  --accent: #C8A84B;
+  --light: #EEF2F8;
+  --muted: #6B7C96;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--light);
+  color: var(--navy);
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 3px; }
+
+@layer components {
+  .btn-primary {
+    @apply bg-school-blue text-white font-medium px-6 py-3 rounded-lg
+    hover:bg-school-navy transition-all duration-200 
+    focus:outline-none focus:ring-2 focus:ring-school-accent focus:ring-offset-2
+    disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-school-blue font-medium px-6 py-3 rounded-lg
+    border border-school-blue hover:bg-school-light transition-all duration-200
+    focus:outline-none focus:ring-2 focus:ring-school-blue focus:ring-offset-2;
+  }
+
+  .btn-danger {
+    @apply bg-red-600 text-white font-medium px-4 py-2 rounded-lg
+    hover:bg-red-700 transition-all duration-200 text-sm;
+  }
+
+  .btn-success {
+    @apply bg-green-600 text-white font-medium px-4 py-2 rounded-lg
+    hover:bg-green-700 transition-all duration-200 text-sm;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 border border-gray-200 rounded-lg
+    focus:outline-none focus:ring-2 focus:ring-school-blue focus:border-transparent
+    bg-white text-school-navy placeholder-school-muted transition-all duration-200;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+  }
+
+  .badge-pending {
+    @apply bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium;
+  }
+  .badge-approved {
+    @apply bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium;
+  }
+  .badge-rejected {
+    @apply bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium;
+  }
+}
+
+/* Decorative school crest placeholder */
+.school-emblem {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #E8C96B);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(200, 168, 75, 0.3);
+}
+
+/* Grain overlay for depth */
+.grain::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.4;
+}
+
+/* Upload dropzone */
+.dropzone-active {
+  @apply border-school-blue bg-blue-50;
+}
+
+/* File card hover */
+.file-card {
+  @apply bg-white border border-gray-100 rounded-xl p-4 
+  hover:shadow-md hover:border-school-blue transition-all duration-200 cursor-pointer;
+}
