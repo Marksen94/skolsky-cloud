@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase, MAX_FILE_SIZE, formatFileSize, getFileIcon } from '@/lib/supabase';
 import { useDropzone } from 'react-dropzone';
-import { Upload, LogOut, Trash2, Download, Clock, User, CloudUpload, BookOpen, Search, AlertCircle, FolderOpen } from 'lucide-react';
+import { Upload, LogOut, Trash2, Download, Clock, User, CloudUpload, BookOpen, Search, AlertCircle, FolderOpen, X, Eye, EyeOff, CheckCircle, Settings } from 'lucide-react';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -18,6 +18,17 @@ export default function Dashboard() {
   const [uploadSuccess, setUploadSuccess] = useState('');
   const [description, setDescription] = useState('');
 
+  // Profil modal
+  const [showProfile, setShowProfile] = useState(false);
+  const [editFirst, setEditFirst] = useState('');
+  const [editLast, setEditLast] = useState('');
+  const [editPw, setEditPw] = useState('');
+  const [editPwConfirm, setEditPwConfirm] = useState('');
+  const [showEditPw, setShowEditPw] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+
   useEffect(() => { loadUser(); }, []);
 
   async function loadUser() {
@@ -27,6 +38,8 @@ export default function Dashboard() {
     if (!prof || prof.status !== 'approved') { await supabase.auth.signOut(); router.push('/'); return; }
     if (prof.is_admin) { router.push('/admin'); return; }
     setProfile(prof);
+    setEditFirst(prof.first_name);
+    setEditLast(prof.last_name);
     await loadFiles(prof.class);
     setLoading(false);
   }
@@ -36,6 +49,34 @@ export default function Dashboard() {
       .select(`*, profiles(first_name, last_name)`)
       .eq('class', className).order('created_at', { ascending: false });
     setFiles(data || []);
+  }
+
+  async function saveProfile(e) {
+    e.preventDefault();
+    setProfileError('');
+    setProfileSuccess('');
+    if (!editFirst.trim() || !editLast.trim()) { setProfileError('Meno a priezvisko nemôžu byť prázdne.'); return; }
+    if (editPw && editPw.length < 6) { setProfileError('Nové heslo musí mať aspoň 6 znakov.'); return; }
+    if (editPw && editPw !== editPwConfirm) { setProfileError('Heslá sa nezhodujú.'); return; }
+    setProfileSaving(true);
+
+    // Aktualizuj meno v profiles
+    const { error: profileErr } = await supabase.from('profiles')
+      .update({ first_name: editFirst.trim(), last_name: editLast.trim() })
+      .eq('id', profile.id);
+    if (profileErr) { setProfileError('Chyba: ' + profileErr.message); setProfileSaving(false); return; }
+
+    // Ak zadal nové heslo, zmeň ho
+    if (editPw) {
+      const { error: pwErr } = await supabase.auth.updateUser({ password: editPw });
+      if (pwErr) { setProfileError('Meno uložené, ale heslo sa nepodarilo zmeniť: ' + pwErr.message); setProfileSaving(false); return; }
+    }
+
+    setProfile(p => ({ ...p, first_name: editFirst.trim(), last_name: editLast.trim() }));
+    setEditPw('');
+    setEditPwConfirm('');
+    setProfileSuccess(editPw ? 'Profil aj heslo boli úspešne zmenené!' : 'Profil bol úspešne aktualizovaný!');
+    setProfileSaving(false);
   }
 
   const onDrop = useCallback(async (accepted, rejected) => {
@@ -111,6 +152,82 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
+
+      {/* Profil Modal */}
+      {showProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 relative animate-slide-up">
+            <button onClick={() => { setShowProfile(false); setProfileError(''); setProfileSuccess(''); }}
+              className="absolute top-4 right-4 w-8 h-8 rounded-xl hover:bg-gray-100 flex items-center justify-center text-school-muted transition-colors">
+              <X size={16} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center">
+                <User size={22} className="text-school-blue" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-school-navy" style={{ fontFamily: 'Sora, sans-serif' }}>
+                  Môj profil
+                </h2>
+                <p className="text-school-muted text-xs">Trieda {profile?.class}</p>
+              </div>
+            </div>
+
+            <form onSubmit={saveProfile} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-school-navy mb-1">Meno</label>
+                  <input type="text" className="input-field py-2 text-sm"
+                    value={editFirst} onChange={e => setEditFirst(e.target.value)} required />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-school-navy mb-1">Priezvisko</label>
+                  <input type="text" className="input-field py-2 text-sm"
+                    value={editLast} onChange={e => setEditLast(e.target.value)} required />
+                </div>
+              </div>
+
+              <div className="border-t border-gray-100 pt-4">
+                <p className="text-xs font-semibold text-school-muted uppercase tracking-wide mb-3">Zmena hesla (voliteľné)</p>
+                <div className="space-y-3">
+                  <div className="relative">
+                    <input type={showEditPw ? 'text' : 'password'} className="input-field pr-10 py-2 text-sm"
+                      placeholder="Nové heslo (min. 6 znakov)"
+                      value={editPw} onChange={e => setEditPw(e.target.value)} />
+                    <button type="button" onClick={() => setShowEditPw(!showEditPw)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-school-muted">
+                      {showEditPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                  {editPw && (
+                    <input type={showEditPw ? 'text' : 'password'} className="input-field py-2 text-sm"
+                      placeholder="Zopakuj nové heslo"
+                      value={editPwConfirm} onChange={e => setEditPwConfirm(e.target.value)} />
+                  )}
+                </div>
+              </div>
+
+              {profileError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2.5 rounded-xl text-sm flex items-center gap-2">
+                  <AlertCircle size={14} /> {profileError}
+                </div>
+              )}
+              {profileSuccess && (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-2.5 rounded-xl text-sm flex items-center gap-2">
+                  <CheckCircle size={14} /> {profileSuccess}
+                </div>
+              )}
+
+              <button type="submit" disabled={profileSaving}
+                className="btn-primary w-full flex items-center justify-center gap-2">
+                {profileSaving ? 'Ukladám...' : 'Uložiť zmeny'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="school-header">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between relative z-10">
@@ -128,11 +245,19 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-xl px-3 py-1.5">
+          <div className="flex items-center gap-3">
+            {/* Profil tlačidlo */}
+            <button onClick={() => { setShowProfile(true); setProfileError(''); setProfileSuccess(''); }}
+              className="hidden sm:flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-xl px-3 py-1.5 transition-colors">
               <User size={13} className="text-blue-200" />
               <span className="text-white text-sm font-medium">{profile?.first_name} {profile?.last_name}</span>
-            </div>
+              <Settings size={12} className="text-blue-300" />
+            </button>
+            {/* Mobile profil */}
+            <button onClick={() => { setShowProfile(true); setProfileError(''); setProfileSuccess(''); }}
+              className="sm:hidden w-8 h-8 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center transition-colors">
+              <User size={15} className="text-blue-200" />
+            </button>
             <button onClick={async () => { await supabase.auth.signOut(); router.push('/'); }}
               className="flex items-center gap-1.5 text-blue-200 hover:text-white transition-colors text-sm">
               <LogOut size={15} /> Odhlásiť
