@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { supabase, CLASSES, formatFileSize, getFileIcon } from '@/lib/supabase';
-import { Users, FileText, CheckCircle, XCircle, Trash2, LogOut, Shield, Clock, Search, Filter, Download, LayoutDashboard } from 'lucide-react';
+import { supabase, CLASSES, MAX_FILE_SIZE, formatFileSize, getFileIcon } from '@/lib/supabase';
+import { useDropzone } from 'react-dropzone';
+import { Users, FileText, CheckCircle, XCircle, Trash2, LogOut, Shield, Clock, Search, Filter, Download, CloudUpload, AlertCircle } from 'lucide-react';
 
 const TABS = ['Žiadosti', 'Žiaci', 'Súbory'];
 
@@ -19,6 +20,11 @@ export default function AdminPage() {
   const [userSearch, setUserSearch] = useState('');
   const [fileSearch, setFileSearch] = useState('');
   const [classFilter, setClassFilter] = useState('');
+  const [uploadClass, setUploadClass] = useState('');
+  const [uploadDesc, setUploadDesc] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [uploadSuccess, setUploadSuccess] = useState('');
 
   useEffect(() => { checkAdmin(); }, []);
 
@@ -54,22 +60,77 @@ export default function AdminPage() {
     await supabase.from('profiles').update({ status: 'rejected' }).eq('id', id);
     await loadPending(); await loadApproved();
   }
+
+  // Vymaže žiaka z profiles AJ z auth.users — môže znova použiť rovnaký email
   async function deleteUser(id, name) {
-    if (!confirm(`Vymazať žiaka ${name}?`)) return;
-    const { data: userFiles } = await supabase.from('files').select('file_name').eq('uploaded_by', id);
-    if (userFiles?.length) {
-      await supabase.storage.from('class-files').remove(userFiles.map(f => f.file_name));
-      await supabase.from('files').delete().eq('uploaded_by', id);
+    if (!confirm(`Vymazať žiaka ${name}?\n\nŽiak bude môcť znova použiť rovnaký email pri novej registrácii.`)) return;
+    try {
+      const res = await fetch('/api/admin/delete-user', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert('Chyba pri mazaní: ' + (data.error || 'Neznáma chyba'));
+        return;
+      }
+      await loadApproved();
+      await loadFiles();
+    } catch (err) {
+      alert('Nepodarilo sa vymazať žiaka: ' + err.message);
     }
-    await supabase.from('profiles').delete().eq('id', id);
-    await loadApproved();
   }
+
   async function deleteFile(file) {
     if (!confirm(`Vymazať "${file.original_name}"?`)) return;
     await supabase.storage.from('class-files').remove([file.file_name]);
     await supabase.from('files').delete().eq('id', file.id);
     await loadFiles();
   }
+
+  const onDrop = useCallback(async (accepted, rejected) => {
+    setUploadError(''); setUploadSuccess('');
+    if (!uploadClass) { setUploadError('Najskôr vyber triedu.'); return; }
+    if (rejected.length > 0) {
+      const err = rejected[0].errors[0];
+      if (err.code === 'file-too-large') setUploadError('Súbor je príliš veľký. Max 50 MB.');
+      else setUploadError('Nepovolený typ súboru.');
+      return;
+    }
+    if (accepted.length === 0) return;
+    const file = accepted[0];
+    setUploading(true);
+    const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const path = `${uploadClass}/${safeName}`;
+    const { error: uploadErr } = await supabase.storage.from('class-files').upload(path, file, { cacheControl: '3600', upsert: false });
+    if (uploadErr) { setUploadError('Chyba pri nahrávaní: ' + uploadErr.message); setUploading(false); return; }
+    const { data: { publicUrl } } = supabase.storage.from('class-files').getPublicUrl(path);
+    const { error: dbErr } = await supabase.from('files').insert({
+      uploaded_by: adminProfile.id, class: uploadClass, file_name: path,
+      original_name: file.name, file_url: publicUrl, file_type: file.type,
+      file_size: file.size, description: uploadDesc.trim() || null,
+    });
+    if (dbErr) { setUploadError('Chyba pri ukladaní: ' + dbErr.message); setUploading(false); return; }
+    setUploadSuccess(`"${file.name}" bol nahratý do triedy ${uploadClass}!`);
+    setUploadDesc('');
+    await loadFiles();
+    setUploading(false);
+  }, [uploadClass, uploadDesc, adminProfile]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'application/pdf': ['.pdf'], 'image/*': ['.jpg', '.jpeg', '.png', '.webp'],
+      'application/vnd.ms-powerpoint': ['.ppt'],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/vnd.ms-excel': ['.xls'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+    },
+    maxSize: MAX_FILE_SIZE, multiple: false, disabled: uploading,
+  });
 
   const filteredUsers = approved.filter(u => {
     const name = `${u.first_name} ${u.last_name} ${u.email} ${u.class}`.toLowerCase();
@@ -228,61 +289,125 @@ export default function AdminPage() {
 
         {/* Súbory */}
         {tab === 'Súbory' && (
-          <div className="card shadow-card animate-fade-in">
-            <div className="flex flex-col sm:flex-row gap-3 mb-5">
-              <div className="relative flex-1">
-                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-school-muted" />
-                <input className="input-field pl-9 py-2 text-sm" placeholder="Hľadaj súbor..."
-                  value={fileSearch} onChange={e => setFileSearch(e.target.value)} />
+          <div className="space-y-4 animate-fade-in">
+            {/* Admin upload sekcia */}
+            <div className="card shadow-card">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                  <CloudUpload size={16} className="text-school-blue" />
+                </div>
+                <h3 className="font-bold text-school-navy">Nahrať súbor do triedy</h3>
               </div>
-              <div className="relative">
-                <Filter size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-school-muted" />
-                <select className="input-field pl-9 py-2 text-sm" value={classFilter} onChange={e => setClassFilter(e.target.value)}>
-                  <option value="">Všetky triedy</option>
-                  {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+              <p className="text-xs text-school-muted mb-4 ml-10">PDF, obrázky, PowerPoint, Word, Excel • max 50 MB</p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-xs font-semibold text-school-navy mb-1">Trieda *</label>
+                  <select className="input-field py-2 text-sm" value={uploadClass} onChange={e => setUploadClass(e.target.value)} disabled={uploading}>
+                    <option value="">-- Vyber triedu --</option>
+                    {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-school-navy mb-1">Popis (voliteľné)</label>
+                  <input type="text" className="input-field py-2 text-sm" placeholder="napr. Fyzika – tabuľky..." value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} disabled={uploading} />
+                </div>
               </div>
+
+              <div {...getRootProps()} className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all duration-200
+                ${isDragActive ? 'border-school-blue bg-blue-50 scale-[1.01]' : 'border-gray-200 hover:border-school-blue hover:bg-blue-50/30'}
+                ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                <input {...getInputProps()} />
+                {uploading ? (
+                  <div>
+                    <div className="w-8 h-8 border-4 border-school-blue border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                    <p className="text-school-blue font-semibold text-sm">Nahrávam súbor...</p>
+                  </div>
+                ) : isDragActive ? (
+                  <div>
+                    <CloudUpload size={24} className="text-school-blue mx-auto mb-1" />
+                    <p className="text-school-blue font-semibold text-sm">Pusti súbor sem!</p>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center mx-auto mb-2">
+                      <CloudUpload size={18} className="text-school-blue" />
+                    </div>
+                    <p className="text-school-navy font-semibold text-sm">Pretiahni súbor sem</p>
+                    <p className="text-school-muted text-xs mt-0.5">alebo klikni pre výber zo zariadenia</p>
+                  </div>
+                )}
+              </div>
+
+              {uploadError && (
+                <div className="mt-3 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-sm">
+                  <AlertCircle size={15} /> {uploadError}
+                </div>
+              )}
+              {uploadSuccess && (
+                <div className="mt-3 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-2.5 rounded-xl text-sm">
+                  ✅ {uploadSuccess}
+                </div>
+              )}
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100">
-                    {['Súbor', 'Nahrál', 'Trieda', 'Veľkosť', 'Dátum', ''].map(h => (
-                      <th key={h} className="text-left py-2 px-3 text-school-muted font-semibold text-xs uppercase tracking-wide">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {filteredFiles.map(file => (
-                    <tr key={file.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl">{getFileIcon(file.file_type)}</span>
-                          <div>
-                            <p className="font-semibold text-school-navy line-clamp-1" style={{ maxWidth: '180px' }}>{file.original_name}</p>
-                            {file.description && <p className="text-xs text-school-muted line-clamp-1">{file.description}</p>}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-3 text-school-muted">{file.profiles?.first_name} {file.profiles?.last_name}</td>
-                      <td className="py-3 px-3"><span className="bg-school-blue text-white text-xs px-2 py-0.5 rounded-full font-medium">{file.class}</span></td>
-                      <td className="py-3 px-3 text-school-muted text-xs">{file.file_size ? formatFileSize(file.file_size) : '—'}</td>
-                      <td className="py-3 px-3 text-school-muted text-xs">{new Date(file.created_at).toLocaleDateString('sk-SK')}</td>
-                      <td className="py-3 px-3">
-                        <div className="flex items-center justify-end gap-2">
-                          <a href={file.file_url} target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-lg hover:bg-blue-50 flex items-center justify-center text-school-blue transition-all">
-                            <Download size={14} />
-                          </a>
-                          <button onClick={() => deleteFile(file)} className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-400 hover:text-red-600 transition-all">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
+
+            {/* Zoznam súborov */}
+            <div className="card shadow-card">
+              <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                <div className="relative flex-1">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-school-muted" />
+                  <input className="input-field pl-9 py-2 text-sm" placeholder="Hľadaj súbor..."
+                    value={fileSearch} onChange={e => setFileSearch(e.target.value)} />
+                </div>
+                <div className="relative">
+                  <Filter size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-school-muted" />
+                  <select className="input-field pl-9 py-2 text-sm" value={classFilter} onChange={e => setClassFilter(e.target.value)}>
+                    <option value="">Všetky triedy</option>
+                    {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      {['Súbor', 'Nahrál', 'Trieda', 'Veľkosť', 'Dátum', ''].map(h => (
+                        <th key={h} className="text-left py-2 px-3 text-school-muted font-semibold text-xs uppercase tracking-wide">{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              {filteredFiles.length === 0 && <p className="text-center text-school-muted py-10 text-sm">Žiadne súbory nezodpovedajú filtru.</p>}
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {filteredFiles.map(file => (
+                      <tr key={file.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">{getFileIcon(file.file_type)}</span>
+                            <div>
+                              <p className="font-semibold text-school-navy line-clamp-1" style={{ maxWidth: '180px' }}>{file.original_name}</p>
+                              {file.description && <p className="text-xs text-school-muted line-clamp-1">{file.description}</p>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 text-school-muted">{file.profiles?.first_name} {file.profiles?.last_name}</td>
+                        <td className="py-3 px-3"><span className="bg-school-blue text-white text-xs px-2 py-0.5 rounded-full font-medium">{file.class}</span></td>
+                        <td className="py-3 px-3 text-school-muted text-xs">{file.file_size ? formatFileSize(file.file_size) : '—'}</td>
+                        <td className="py-3 px-3 text-school-muted text-xs">{new Date(file.created_at).toLocaleDateString('sk-SK')}</td>
+                        <td className="py-3 px-3">
+                          <div className="flex items-center justify-end gap-2">
+                            <a href={file.file_url} target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-lg hover:bg-blue-50 flex items-center justify-center text-school-blue transition-all">
+                              <Download size={14} />
+                            </a>
+                            <button onClick={() => deleteFile(file)} className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-400 hover:text-red-600 transition-all">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredFiles.length === 0 && <p className="text-center text-school-muted py-10 text-sm">Žiadne súbory nezodpovedajú filtru.</p>}
+              </div>
             </div>
           </div>
         )}
