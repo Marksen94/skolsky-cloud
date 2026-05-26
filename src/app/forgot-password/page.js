@@ -18,8 +18,9 @@ export default function ForgotPasswordPage() {
     setError('');
     setSuccessMsg('');
 
+    // ZMENA: window.location.origin nahradený natvrdo tvojou produkčnou Vercel adresou
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
+      redirectTo: `https://gdusecovce-cloud.vercel.app/auth/callback?next=/update-password`,
     });
 
     if (resetError) {
