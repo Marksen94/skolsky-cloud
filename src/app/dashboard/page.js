@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase, MAX_FILE_SIZE, formatFileSize, getFileIcon } from '@/lib/supabase';
 import { useDropzone } from 'react-dropzone';
-import { Upload, LogOut, Trash2, Download, Clock, User, CloudUpload, BookOpen, Search, AlertCircle, FolderOpen, X, Eye, EyeOff, CheckCircle, Settings, KeyRound } from 'lucide-react';
+import { Upload, LogOut, Trash2, Download, Clock, User, CloudUpload, BookOpen, Search, AlertCircle, FolderOpen, X, Eye, EyeOff, CheckCircle, Settings, Lock } from 'lucide-react';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -18,7 +18,7 @@ export default function Dashboard() {
   const [uploadSuccess, setUploadSuccess] = useState('');
   const [description, setDescription] = useState('');
 
-  // Profil modal – iba zmena hesla
+  // Profil modal
   const [showProfile, setShowProfile] = useState(false);
   const [editPw, setEditPw] = useState('');
   const [editPwConfirm, setEditPwConfirm] = useState('');
@@ -148,7 +148,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
 
-      {/* Profil Modal – iba zmena hesla */}
+      {/* Profil Modal */}
       {showProfile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 relative animate-slide-up">
@@ -157,51 +157,75 @@ export default function Dashboard() {
               <X size={16} />
             </button>
 
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-3 mb-5">
               <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center">
-                <KeyRound size={22} className="text-school-blue" />
+                <User size={22} className="text-school-blue" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-school-navy" style={{ fontFamily: 'Sora, sans-serif' }}>
-                  Zmena hesla
-                </h2>
-                <p className="text-school-muted text-xs">{profile?.first_name} {profile?.last_name} · Trieda {profile?.class}</p>
+                <h2 className="text-xl font-bold text-school-navy" style={{ fontFamily: 'Sora, sans-serif' }}>Môj profil</h2>
+                <p className="text-school-muted text-xs">Trieda {profile?.class}</p>
               </div>
             </div>
 
-            <p className="text-xs text-school-muted bg-gray-50 rounded-xl px-3 py-2 mb-5">
-              Meno a priezvisko môže zmeniť iba správca školy.
-            </p>
-
             <form onSubmit={saveProfile} className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-school-navy mb-1.5">Nové heslo</label>
-                <div className="relative">
+              {/* Meno a priezvisko – zobrazené ale nedá sa meniť */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-school-muted mb-1.5 flex items-center gap-1">
+                    Meno <Lock size={10} />
+                  </label>
                   <input
-                    type={showEditPw ? 'text' : 'password'}
-                    className="input-field pr-10"
-                    placeholder="min. 6 znakov"
-                    value={editPw}
-                    onChange={e => setEditPw(e.target.value)}
-                    required
+                    type="text"
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed outline-none"
+                    value={profile?.first_name || ''}
+                    disabled
                   />
-                  <button type="button" onClick={() => setShowEditPw(!showEditPw)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-school-muted hover:text-school-navy">
-                    {showEditPw ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-school-muted mb-1.5 flex items-center gap-1">
+                    Priezvisko <Lock size={10} />
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed outline-none"
+                    value={profile?.last_name || ''}
+                    disabled
+                  />
                 </div>
               </div>
+              <p className="text-xs text-gray-400 -mt-1">Meno môže zmeniť iba správca školy.</p>
 
-              <div>
-                <label className="block text-sm font-semibold text-school-navy mb-1.5">Zopakujte nové heslo</label>
-                <input
-                  type={showEditPw ? 'text' : 'password'}
-                  className="input-field"
-                  placeholder="zopakujte heslo"
-                  value={editPwConfirm}
-                  onChange={e => setEditPwConfirm(e.target.value)}
-                  required
-                />
+              {/* Zmena hesla */}
+              <div className="border-t border-gray-100 pt-3 space-y-3">
+                <p className="text-xs font-semibold text-school-muted uppercase tracking-wide">Zmena hesla</p>
+                <div>
+                  <label className="block text-sm font-semibold text-school-navy mb-1.5">Nové heslo</label>
+                  <div className="relative">
+                    <input
+                      type={showEditPw ? 'text' : 'password'}
+                      className="input-field pr-10"
+                      placeholder="min. 6 znakov"
+                      value={editPw}
+                      onChange={e => setEditPw(e.target.value)}
+                      required
+                    />
+                    <button type="button" onClick={() => setShowEditPw(!showEditPw)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-school-muted hover:text-school-navy">
+                      {showEditPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-school-navy mb-1.5">Zopakujte nové heslo</label>
+                  <input
+                    type={showEditPw ? 'text' : 'password'}
+                    className="input-field"
+                    placeholder="zopakujte heslo"
+                    value={editPwConfirm}
+                    onChange={e => setEditPwConfirm(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
 
               {profileError && (
