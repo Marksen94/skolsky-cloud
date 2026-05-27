@@ -65,9 +65,14 @@ export default function AdminPage() {
   async function deleteUser(id, name) {
     if (!confirm(`Vymazať žiaka ${name}?\n\nŽiak bude môcť znova použiť rovnaký email pri novej registrácii.`)) return;
     try {
+      // Pridáme Bearer token správcu do hlavičky — server ho overí
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch('/api/admin/delete-user', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
         body: JSON.stringify({ userId: id }),
       });
       const data = await res.json();

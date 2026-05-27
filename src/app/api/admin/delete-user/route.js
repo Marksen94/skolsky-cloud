@@ -9,11 +9,41 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'userId je povinný' }, { status: 400 });
     }
 
-    // Service role kľúč — môže vymazať auth.users
+    // Service role klient — má plný prístup k auth.users a DB
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
+
+    // ── Overenie volajúceho: musí byť prihlásený admin ──────────────────────
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Chýba autorizačný token.' }, { status: 401 });
+    }
+    const callerToken = authHeader.slice(7);
+
+    // Overíme token cez Supabase — vráti session volajúceho
+    const { data: { user: caller }, error: callerErr } = await supabaseAdmin.auth.getUser(callerToken);
+    if (callerErr || !caller) {
+      return NextResponse.json({ error: 'Neplatný token.' }, { status: 401 });
+    }
+
+    // Skontrolujeme, či má volajúci is_admin = true v profiles
+    const { data: callerProfile, error: profileErr } = await supabaseAdmin
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', caller.id)
+      .single();
+
+    if (profileErr || !callerProfile?.is_admin) {
+      return NextResponse.json({ error: 'Prístup zamietnutý. Nie si správca.' }, { status: 403 });
+    }
+
+    // Zabrán správcovi vymazať samého seba
+    if (caller.id === userId) {
+      return NextResponse.json({ error: 'Nemôžeš vymazať vlastný účet.' }, { status: 400 });
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     // Najprv vymaž súbory žiaka zo storage
     const { data: userFiles } = await supabaseAdmin
