@@ -1,0 +1,2 @@
+// Tento súbor je prázdny – logika callbacku sa presunula do page.js (client component)
+// Dôvod: Supabase PKCE flow vyžaduje client-side exchange kódu (localStorage code_verifier)

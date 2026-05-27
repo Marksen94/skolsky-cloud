@@ -3,7 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    detectSessionInUrl: true,   // automaticky spracuje tokeny z URL hash/query
+    persistSession: true,        // uloží session do localStorage
+    autoRefreshToken: true,      // automaticky obnoví token pred vypršaním
+  },
+});
 
 // Zoznam tried
 export const CLASSES = [
