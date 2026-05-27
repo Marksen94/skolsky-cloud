@@ -11,15 +11,14 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const code = searchParams.get('code');
-    const next = searchParams.get('next') || '/';
+    const next = searchParams.get('next') || '/update-password'; // vždy /update-password ak next chýba
 
     if (!code) {
       setStatus('Neplatný odkaz. Presmerovávam...');
-      setTimeout(() => router.push('/'), 2000);
+      setTimeout(() => router.push('/forgot-password'), 2000);
       return;
     }
 
-    // Client-side exchange – Supabase má prístup k PKCE code_verifier v localStorage
     supabase.auth.exchangeCodeForSession(code)
       .then(({ data, error }) => {
         if (error || !data?.session) {
@@ -28,8 +27,9 @@ export default function AuthCallbackPage() {
           setTimeout(() => router.push('/forgot-password'), 2500);
           return;
         }
-        // Presmeruj na cieľovú stránku (napr. /update-password)
-        router.push(next);
+
+        // Vždy smeruj na update-password ak ide o reset hesla
+        router.push('/update-password');
       });
   }, []);
 

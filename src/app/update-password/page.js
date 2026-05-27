@@ -17,23 +17,21 @@ export default function UpdatePasswordPage() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // Skontroluj, či už existuje aktívna relácia (napr. naimportovaná cez hash)
+    // Skontroluj existujúcu session (callback ju už nastavil)
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setReady(true);
       }
     });
 
-    // Sleduj zmeny auth stavu (napríklad PASSWORD_RECOVERY po spracovaní URL hash fragmentu)
+    // Zachyť PASSWORD_RECOVERY alebo SIGNED_IN udalosť
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+      if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session) {
         setReady(true);
       }
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   async function handleSubmit(e) {
@@ -58,16 +56,16 @@ export default function UpdatePasswordPage() {
       return;
     }
 
+    // Odhlásiť po zmene hesla, nech sa používateľ prihlási čisto
+    await supabase.auth.signOut();
     setSuccess(true);
-    setTimeout(() => {
-      router.push('/');
-    }, 3000);
+    setTimeout(() => router.push('/'), 3000);
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/40 flex items-center justify-center p-6">
       <div className="w-full max-w-md animate-fade-in">
-        {/* Logo a názov školy */}
+        {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-md p-1.5 mx-auto mb-3">
             <Image src="/logo.png" alt="Logo" width={52} height={52} className="object-contain" />
@@ -77,7 +75,6 @@ export default function UpdatePasswordPage() {
           </h1>
         </div>
 
-        {/* Karta */}
         <div className="card shadow-card">
           {success ? (
             <div className="text-center py-6">
@@ -97,15 +94,16 @@ export default function UpdatePasswordPage() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-school-navy" style={{ fontFamily: 'Sora, sans-serif' }}>
-                    Nové heslo
+                    Nastavenie nového hesla
                   </h2>
-                  <p className="text-school-muted text-xs">Nastavte si nové heslo pre svoj účet</p>
+                  <p className="text-school-muted text-xs">Zadajte nové heslo pre váš účet</p>
                 </div>
               </div>
 
               {!ready && (
-                <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl mb-4 text-sm">
-                  ⏳ Čakáme na overenie odkazu pre obnovu hesla... Ak ste sem prišli z emailu, chvíľu počkajte.
+                <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl mb-4 text-sm flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  Načítavam reláciu, chvíľu počkajte...
                 </div>
               )}
 
@@ -132,7 +130,6 @@ export default function UpdatePasswordPage() {
                       type="button"
                       onClick={() => setShowPw(!showPw)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-school-muted hover:text-school-navy"
-                      disabled={!ready}
                     >
                       {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
@@ -140,7 +137,7 @@ export default function UpdatePasswordPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-school-navy mb-1.5">Potvrdenie nového hesla</label>
+                  <label className="block text-sm font-semibold text-school-navy mb-1.5">Zopakujte nové heslo</label>
                   <input
                     type={showPw ? 'text' : 'password'}
                     className="input-field"
