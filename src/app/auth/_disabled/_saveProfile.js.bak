@@ -1,0 +1,18 @@
+  async function saveProfile(e) {
+    e.preventDefault();
+    setProfileError('');
+    setProfileSuccess('');
+
+    if (!editPw) { setProfileError('Zadajte nové heslo.'); return; }
+    if (editPw.length < 6) { setProfileError('Nové heslo musí mať aspoň 6 znakov.'); return; }
+    if (editPw !== editPwConfirm) { setProfileError('Heslá sa nezhodujú.'); return; }
+
+    setProfileSaving(true);
+    const { error: pwErr } = await supabase.auth.updateUser({ password: editPw });
+    if (pwErr) { setProfileError('Heslo sa nepodarilo zmeniť: ' + pwErr.message); setProfileSaving(false); return; }
+
+    setEditPw('');
+    setEditPwConfirm('');
+    setProfileSuccess('Heslo bolo úspešne zmenené!');
+    setProfileSaving(false);
+  }
