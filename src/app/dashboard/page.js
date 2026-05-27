@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase, MAX_FILE_SIZE, formatFileSize, getFileIcon } from '@/lib/supabase';
 import { useDropzone } from 'react-dropzone';
-import { Upload, LogOut, Trash2, Download, Clock, User, CloudUpload, BookOpen, Search, AlertCircle, FolderOpen, X, Eye, EyeOff, CheckCircle, Settings, Lock } from 'lucide-react';
+import { Upload, LogOut, Trash2, Download, Clock, User, CloudUpload, BookOpen, Search, AlertCircle, FolderOpen, X, Eye, EyeOff, CheckCircle, Settings, Lock, Folder, ChevronRight, FolderPlus } from 'lucide-react';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -27,6 +27,15 @@ export default function Dashboard() {
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState('');
 
+  // Priečinky
+  const [folders, setFolders] = useState([]);
+  const [currentFolder, setCurrentFolder] = useState(null);
+  const [folderPath, setFolderPath] = useState([]);
+  const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [folderSaving, setFolderSaving] = useState(false);
+  const [folderError, setFolderError] = useState('');
+
   useEffect(() => { loadUser(); }, []);
 
   async function loadUser() {
@@ -41,10 +50,120 @@ export default function Dashboard() {
   }
 
   async function loadFiles(className) {
-    const { data } = await supabase.from('files')
+    const { data: filesData } = await supabase.from('files')
       .select(`*, profiles(first_name, last_name)`)
       .eq('class', className).order('created_at', { ascending: false });
-    setFiles(data || []);
+    setFiles(filesData || []);
+
+    const { data: foldersData } = await supabase.from('folders')
+      .select('*')
+      .eq('class', className).order('name', { ascending: true });
+    setFolders(foldersData || []);
+  }
+
+  function navigateToFolder(folder) {
+    if (!folder) {
+      setCurrentFolder(null);
+      setFolderPath([]);
+    } else {
+      const path = [];
+      let temp = folder;
+      while (temp) {
+        path.unshift(temp);
+        const parentId = temp.parent_id;
+        temp = parentId ? folders.find(f => f.id === parentId) : null;
+      }
+      setCurrentFolder(folder);
+      setFolderPath(path);
+    }
+  }
+
+  function getFolderDepth(folder) {
+    let depth = 0;
+    let temp = folder;
+    while (temp) {
+      depth++;
+      const parentId = temp.parent_id;
+      temp = parentId ? folders.find(f => f.id === parentId) : null;
+    }
+    return depth;
+  }
+
+  async function createFolder(e) {
+    e.preventDefault();
+    if (!newFolderName.trim()) return;
+    if (folderPath.length >= 3) {
+      setFolderError('Dosiahli ste maximálnu úroveň vnorenia priečinkov.');
+      return;
+    }
+    setFolderSaving(true);
+    setFolderError('');
+
+    const { error } = await supabase.from('folders').insert({
+      name: newFolderName.trim(),
+      class: profile.class,
+      parent_id: currentFolder ? currentFolder.id : null,
+      created_by: profile.id
+    });
+
+    if (error) {
+      setFolderError('Nepodarilo sa vytvoriť priečinok: ' + error.message);
+      setFolderSaving(false);
+      return;
+    }
+
+    setNewFolderName('');
+    setShowCreateFolder(false);
+    await loadFiles(profile.class);
+    setFolderSaving(false);
+  }
+
+  async function deleteFolder(folder) {
+    if (!confirm(`Naozaj chcete vymazať priečinok "${folder.name}" a všetok jeho obsah?`)) return;
+    if (folder.created_by !== profile.id && !profile.is_admin) {
+      alert('Môžete vymazať iba vlastné priečinky.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const getDescendantFolderIds = (folderId) => {
+        let ids = [folderId];
+        const children = folders.filter(f => f.parent_id === folderId);
+        for (const child of children) {
+          ids = [...ids, ...getDescendantFolderIds(child.id)];
+        }
+        return ids;
+      };
+
+      const folderIdsToDelete = getDescendantFolderIds(folder.id);
+      const filesToDelete = files.filter(f => f.folder_id && folderIdsToDelete.includes(f.folder_id));
+
+      if (filesToDelete.length > 0) {
+        const fileNames = filesToDelete.map(f => f.file_name);
+        const { error: storageErr } = await supabase.storage.from('class-files').remove(fileNames);
+        if (storageErr) {
+          console.error('Chyba pri mazaní zo storage:', storageErr);
+        }
+      }
+
+      const { error: dbErr } = await supabase.from('folders').delete().eq('id', folder.id);
+      if (dbErr) {
+        alert('Nepodarilo sa vymazať priečinok z databázy: ' + dbErr.message);
+      } else {
+        if (currentFolder && folderIdsToDelete.includes(currentFolder.id)) {
+          const parentFolder = folder.parent_id ? folders.find(f => f.id === folder.parent_id) : null;
+          navigateToFolder(parentFolder);
+        }
+      }
+
+      await loadFiles(profile.class);
+    } catch (err) {
+      alert('Vyskytla sa chyba: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function saveProfile(e) {
@@ -99,6 +218,7 @@ export default function Dashboard() {
       uploaded_by: profile.id, class: profile.class, file_name: path,
       original_name: file.name, file_url: publicUrl, file_type: file.type,
       file_size: file.size, description: description.trim() || null,
+      folder_id: currentFolder ? currentFolder.id : null,
     });
     if (dbErr) { setUploadError('Chyba pri ukladaní: ' + dbErr.message); setUploading(false); return; }
 
@@ -106,7 +226,7 @@ export default function Dashboard() {
     setDescription('');
     await loadFiles(profile.class);
     setUploading(false);
-  }, [profile, description]);
+  }, [profile, description, currentFolder]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -130,11 +250,17 @@ export default function Dashboard() {
     await loadFiles(profile.class);
   }
 
-  const filteredFiles = files.filter(f =>
-    f.original_name.toLowerCase().includes(search.toLowerCase()) ||
-    (f.description || '').toLowerCase().includes(search.toLowerCase()) ||
-    (`${f.profiles?.first_name} ${f.profiles?.last_name}`).toLowerCase().includes(search.toLowerCase())
-  );
+  const currentFolderId = currentFolder ? currentFolder.id : null;
+  const visibleFolders = folders.filter(f => (f.parent_id || null) === currentFolderId);
+  const filteredFiles = files.filter(f => {
+    const inFolder = (f.folder_id || null) === currentFolderId;
+    if (!inFolder) return false;
+    return (
+      f.original_name.toLowerCase().includes(search.toLowerCase()) ||
+      (f.description || '').toLowerCase().includes(search.toLowerCase()) ||
+      (`${f.profiles?.first_name} ${f.profiles?.last_name}`).toLowerCase().includes(search.toLowerCase())
+    );
+  });
 
   if (loading) return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/40 flex items-center justify-center">
@@ -343,44 +469,162 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Files */}
+        {/* Files & Folders */}
         <div className="card shadow-card animate-slide-up">
-          <div className="flex items-center justify-between mb-5">
+          {/* Header row */}
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
                 <FolderOpen size={16} className="text-school-blue" />
               </div>
-              <h3 className="font-bold text-school-navy">Súbory triedy</h3>
+              <h3 className="font-bold text-school-navy">Priečinky a súbory triedy</h3>
             </div>
-            <div className="relative">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-school-muted" />
-              <input type="text" className="input-field pl-9 py-2 text-sm w-48"
-                placeholder="Hľadaj..." value={search} onChange={e => setSearch(e.target.value)} />
+            <div className="flex items-center gap-2">
+              {folderPath.length < 3 && (
+                <button
+                  onClick={() => { setShowCreateFolder(true); setFolderError(''); setNewFolderName(''); }}
+                  className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-school-blue px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors">
+                  <FolderPlus size={13} /> Nový priečinok
+                </button>
+              )}
+              <div className="relative">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-school-muted" />
+                <input type="text" className="input-field pl-9 py-2 text-sm w-40"
+                  placeholder="Hľadaj..." value={search} onChange={e => setSearch(e.target.value)} />
+              </div>
             </div>
           </div>
 
-          {filteredFiles.length === 0 ? (
-            <div className="text-center py-14">
+          {/* Breadcrumbs */}
+          <div className="flex items-center gap-1 flex-wrap mb-4 text-sm">
+            <button
+              onClick={() => navigateToFolder(null)}
+              className={`px-2 py-1 rounded-lg transition-colors ${
+                !currentFolder ? 'bg-school-navy text-white font-semibold' : 'text-school-muted hover:text-school-navy hover:bg-gray-100'
+              }`}>
+              Trieda {profile?.class}
+            </button>
+            {folderPath.map((f, i) => (
+              <span key={f.id} className="flex items-center gap-1">
+                <ChevronRight size={13} className="text-gray-300" />
+                <button
+                  onClick={() => navigateToFolder(f)}
+                  className={`px-2 py-1 rounded-lg transition-colors ${
+                    i === folderPath.length - 1 ? 'bg-school-navy text-white font-semibold' : 'text-school-muted hover:text-school-navy hover:bg-gray-100'
+                  }`}>
+                  {f.name}
+                </button>
+              </span>
+            ))}
+          </div>
+
+          {/* Create Folder inline form */}
+          {showCreateFolder && (
+            <form onSubmit={createFolder} className="flex items-center gap-2 mb-4 p-3 bg-blue-50/60 rounded-2xl border border-blue-100">
+              <Folder size={16} className="text-school-blue flex-shrink-0" />
+              <input
+                type="text"
+                className="input-field py-1.5 text-sm flex-1"
+                placeholder="Názov priečinka..."
+                value={newFolderName}
+                onChange={e => setNewFolderName(e.target.value)}
+                autoFocus
+                maxLength={60}
+              />
+              <button type="submit" disabled={folderSaving}
+                className="btn-primary py-1.5 px-3 text-sm">
+                {folderSaving ? '...' : 'Vytvoriť'}
+              </button>
+              <button type="button" onClick={() => setShowCreateFolder(false)}
+                className="w-7 h-7 rounded-lg hover:bg-gray-200 flex items-center justify-center text-school-muted transition-colors">
+                <X size={14} />
+              </button>
+            </form>
+          )}
+          {folderError && (
+            <div className="mb-3 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-xl text-sm">
+              <AlertCircle size={13} /> {folderError}
+            </div>
+          )}
+
+          {/* Folders grid */}
+          {visibleFolders.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-5">
+              {visibleFolders.map(folder => {
+                const childCount = folders.filter(f => f.parent_id === folder.id).length;
+                const fileCount = files.filter(f => f.folder_id === folder.id).length;
+                return (
+                  <FolderCard
+                    key={folder.id}
+                    folder={folder}
+                    childCount={childCount}
+                    fileCount={fileCount}
+                    isOwner={folder.created_by === profile?.id}
+                    onOpen={() => navigateToFolder(folder)}
+                    onDelete={() => deleteFolder(folder)}
+                  />
+                );
+              })}
+            </div>
+          )}
+
+          {/* Separator when both folders and files exist */}
+          {visibleFolders.length > 0 && filteredFiles.length > 0 && (
+            <div className="border-t border-gray-100 mb-5" />
+          )}
+
+          {/* Files grid */}
+          {filteredFiles.length === 0 && visibleFolders.length === 0 ? (
+            <div className="text-center py-10">
               <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
                 <BookOpen size={24} className="text-gray-300" />
               </div>
               <p className="text-school-muted text-sm">
-                {search ? 'Žiadne súbory nezodpovedajú hľadaniu.' : 'Trieda zatiaľ nemá žiadne súbory. Buď prvý!'}
+                {search ? 'Žiadne súbory nezodpovedajú hľadaniu.' : currentFolder ? 'Tento priečinok je prázdny.' : 'Trieda zatiaľ nemá žiadne materiály.'}
               </p>
             </div>
-          ) : (
+          ) : filteredFiles.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {filteredFiles.map(file => (
                 <FileCard key={file.id} file={file} isOwner={file.uploaded_by === profile?.id} onDelete={() => deleteFile(file)} />
               ))}
             </div>
-          )}
+          ) : null}
         </div>
 
         <p className="text-center text-xs text-school-muted/50">
           © 2026 RU-MONT s. r. o., Spojená škola Sečovce
         </p>
       </main>
+    </div>
+  );
+}
+
+function FolderCard({ folder, childCount, fileCount, isOwner, onOpen, onDelete }) {
+  return (
+    <div className="group relative">
+      <button
+        onClick={onOpen}
+        className="w-full text-left p-4 rounded-2xl border border-gray-100 bg-gradient-to-br from-amber-50/60 to-orange-50/30 hover:from-amber-100/80 hover:to-orange-100/50 hover:border-amber-200 transition-all duration-200 hover:shadow-sm">
+        <div className="flex items-start justify-between mb-2">
+          <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+            <Folder size={20} className="text-amber-600" />
+          </div>
+          {isOwner && (
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); onDelete(); }}
+              className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-400 hover:text-red-600 transition-all">
+              <Trash2 size={12} />
+            </button>
+          )}
+        </div>
+        <p className="font-semibold text-school-navy text-sm leading-tight line-clamp-2 mb-1">{folder.name}</p>
+        <p className="text-xs text-school-muted">
+          {childCount > 0 && `${childCount} podpriec. `}{fileCount > 0 && `${fileCount} súb.`}
+          {childCount === 0 && fileCount === 0 && 'Prázdny'}
+        </p>
+      </button>
     </div>
   );
 }
