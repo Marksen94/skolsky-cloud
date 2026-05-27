@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase, CLASSES, MAX_FILE_SIZE, formatFileSize, getFileIcon } from '@/lib/supabase';
 import { useDropzone } from 'react-dropzone';
-import { Users, FileText, CheckCircle, XCircle, Trash2, LogOut, Shield, Clock, Search, Filter, Download, CloudUpload, AlertCircle } from 'lucide-react';
+import { Users, FileText, CheckCircle, XCircle, Trash2, LogOut, Shield, Clock, Search, Filter, Download, CloudUpload, AlertCircle, Folder } from 'lucide-react';
 
 const TABS = ['Žiadosti', 'Žiaci', 'Súbory'];
 
@@ -20,8 +20,12 @@ export default function AdminPage() {
   const [userSearch, setUserSearch] = useState('');
   const [fileSearch, setFileSearch] = useState('');
   const [classFilter, setClassFilter] = useState('');
+
+  // Upload stav
   const [uploadClass, setUploadClass] = useState('');
   const [uploadDesc, setUploadDesc] = useState('');
+  const [uploadFolderId, setUploadFolderId] = useState('');
+  const [uploadClassFolders, setUploadClassFolders] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
@@ -56,12 +60,11 @@ export default function AdminPage() {
     await loadPending(); await loadApproved();
   }
   async function rejectUser(id, name) {
-    if (!confirm(`Zamietnuť žiadosť od ${name}?`)) return;
+    if (!confirm(`Zamietnút žiadosť od ${name}?`)) return;
     await supabase.from('profiles').update({ status: 'rejected' }).eq('id', id);
     await loadPending(); await loadApproved();
   }
 
-  // Vymaže žiaka z profiles AJ z auth.users — môže znova použiť rovnaký email
   async function deleteUser(id, name) {
     if (!confirm(`Vymazať žiaka ${name}?\n\nŽiak bude môcť znova použiť rovnaký email pri novej registrácii.`)) return;
     try {
@@ -94,6 +97,33 @@ export default function AdminPage() {
     await loadFiles();
   }
 
+  // ── Načíta priečinky triedy pri zmene selectu ──────────────────────────────
+  async function handleUploadClassChange(cls) {
+    setUploadClass(cls);
+    setUploadFolderId('');
+    if (!cls) { setUploadClassFolders([]); return; }
+    const { data } = await supabase
+      .from('folders')
+      .select('id, name, parent_id')
+      .eq('class', cls)
+      .order('name', { ascending: true });
+    setUploadClassFolders(data || []);
+  }
+
+  // Zostaví odsadený strom priečinkov pre <select>
+  function buildFolderOptions(folderList, parentId = null, depth = 0) {
+    const items = folderList.filter(f => (f.parent_id || null) === parentId);
+    let options = [];
+    for (const f of items) {
+      const indent = '\u00a0\u00a0'.repeat(depth * 2);
+      const prefix = depth > 0 ? '\u2514 ' : '';
+      options.push({ id: f.id, label: indent + prefix + f.name });
+      options = [...options, ...buildFolderOptions(folderList, f.id, depth + 1)];
+    }
+    return options;
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
   const onDrop = useCallback(async (accepted, rejected) => {
     setUploadError(''); setUploadSuccess('');
     if (!uploadClass) { setUploadError('Najskôr vyber triedu.'); return; }
@@ -106,22 +136,39 @@ export default function AdminPage() {
     if (accepted.length === 0) return;
     const file = accepted[0];
     setUploading(true);
+
     const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
     const path = `${uploadClass}/${safeName}`;
+
     const { error: uploadErr } = await supabase.storage.from('class-files').upload(path, file, { cacheControl: '3600', upsert: false });
     if (uploadErr) { setUploadError('Chyba pri nahrávaní: ' + uploadErr.message); setUploading(false); return; }
+
     const { data: { publicUrl } } = supabase.storage.from('class-files').getPublicUrl(path);
+
     const { error: dbErr } = await supabase.from('files').insert({
-      uploaded_by: adminProfile.id, class: uploadClass, file_name: path,
-      original_name: file.name, file_url: publicUrl, file_type: file.type,
-      file_size: file.size, description: uploadDesc.trim() || null,
+      uploaded_by: adminProfile.id,
+      class: uploadClass,
+      file_name: path,
+      original_name: file.name,
+      file_url: publicUrl,
+      file_type: file.type,
+      file_size: file.size,
+      description: uploadDesc.trim() || null,
+      folder_id: uploadFolderId || null,   // ← nové
     });
     if (dbErr) { setUploadError('Chyba pri ukladaní: ' + dbErr.message); setUploading(false); return; }
-    setUploadSuccess(`"${file.name}" bol nahratý do triedy ${uploadClass}!`);
+
+    const folderName = uploadFolderId
+      ? uploadClassFolders.find(f => f.id === uploadFolderId)?.name
+      : null;
+    setUploadSuccess(
+      `"${file.name}" bol nahratý do triedy ${uploadClass}` +
+      (folderName ? ` → priečinok „${folderName}"` : '') + '!'
+    );
     setUploadDesc('');
     await loadFiles();
     setUploading(false);
-  }, [uploadClass, uploadDesc, adminProfile]);
+  }, [uploadClass, uploadDesc, uploadFolderId, uploadClassFolders, adminProfile]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -145,6 +192,8 @@ export default function AdminPage() {
     const text = `${f.original_name} ${f.description || ''} ${f.profiles?.first_name || ''} ${f.class}`.toLowerCase();
     return text.includes(fileSearch.toLowerCase()) && (classFilter ? f.class === classFilter : true);
   });
+
+  const folderOptions = buildFolderOptions(uploadClassFolders);
 
   if (loading) return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/40 flex items-center justify-center">
@@ -305,20 +354,61 @@ export default function AdminPage() {
               </div>
               <p className="text-xs text-school-muted mb-4 ml-10">PDF, obrázky, PowerPoint, Word, Excel • max 50 MB</p>
 
+              {/* Riadok 1: Trieda + Popis */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <div>
                   <label className="block text-xs font-semibold text-school-navy mb-1">Trieda *</label>
-                  <select className="input-field py-2 text-sm" value={uploadClass} onChange={e => setUploadClass(e.target.value)} disabled={uploading}>
+                  <select
+                    className="input-field py-2 text-sm"
+                    value={uploadClass}
+                    onChange={e => handleUploadClassChange(e.target.value)}
+                    disabled={uploading}
+                  >
                     <option value="">-- Vyber triedu --</option>
                     {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-school-navy mb-1">Popis (voliteľné)</label>
-                  <input type="text" className="input-field py-2 text-sm" placeholder="napr. Fyzika – tabuľky..." value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} disabled={uploading} />
+                  <input
+                    type="text"
+                    className="input-field py-2 text-sm"
+                    placeholder="napr. Fyzika – tabuľky..."
+                    value={uploadDesc}
+                    onChange={e => setUploadDesc(e.target.value)}
+                    disabled={uploading}
+                  />
                 </div>
               </div>
 
+              {/* Riadok 2: Priečinok (zobrazí sa až po výbere triedy) */}
+              {uploadClass && (
+                <div className="mb-3">
+                  <label className="block text-xs font-semibold text-school-navy mb-1 flex items-center gap-1">
+                    <Folder size={11} className="text-amber-500" />
+                    Priečinok (voliteľné)
+                  </label>
+                  {folderOptions.length === 0 ? (
+                    <p className="text-xs text-school-muted italic px-1">
+                      Trieda {uploadClass} zatiaľ nemá žiadne priečinky — súbor bude v koreňovom zobrazení.
+                    </p>
+                  ) : (
+                    <select
+                      className="input-field py-2 text-sm"
+                      value={uploadFolderId}
+                      onChange={e => setUploadFolderId(e.target.value)}
+                      disabled={uploading}
+                    >
+                      <option value="">— Bez priečinka (koreň triedy) —</option>
+                      {folderOptions.map(opt => (
+                        <option key={opt.id} value={opt.id}>{opt.label}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+
+              {/* Dropzone */}
               <div {...getRootProps()} className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all duration-200
                 ${isDragActive ? 'border-school-blue bg-blue-50 scale-[1.01]' : 'border-gray-200 hover:border-school-blue hover:bg-blue-50/30'}
                 ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>

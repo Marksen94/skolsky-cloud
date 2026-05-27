@@ -128,33 +128,52 @@ export default function Dashboard() {
     setLoading(true);
 
     try {
-      const getDescendantFolderIds = (folderId) => {
+      // 1. Načítaj VŠETKY priečinky triedy čerstvo z DB (nie zo state)
+      const { data: allFolders } = await supabase
+        .from('folders')
+        .select('id, parent_id')
+        .eq('class', profile.class);
+
+      // 2. Rekurzívne zozbieraj ID všetkých potomkov vrátane samotného priečinka
+      const getDescendantIds = (folderId, list) => {
         let ids = [folderId];
-        const children = folders.filter(f => f.parent_id === folderId);
-        for (const child of children) {
-          ids = [...ids, ...getDescendantFolderIds(child.id)];
+        for (const f of list.filter(f => f.parent_id === folderId)) {
+          ids = [...ids, ...getDescendantIds(f.id, list)];
         }
         return ids;
       };
+      const folderIdsToDelete = getDescendantIds(folder.id, allFolders || []);
 
-      const folderIdsToDelete = getDescendantFolderIds(folder.id);
-      const filesToDelete = files.filter(f => f.folder_id && folderIdsToDelete.includes(f.folder_id));
+      // 3. Načítaj všetky súbory v tých priečinkoch čerstvo z DB
+      const { data: filesToDelete } = await supabase
+        .from('files')
+        .select('file_name')
+        .in('folder_id', folderIdsToDelete);
 
-      if (filesToDelete.length > 0) {
+      // 4. Vymaž súbory zo storage v dávkach po 100 (limit Supabase)
+      if (filesToDelete?.length > 0) {
         const fileNames = filesToDelete.map(f => f.file_name);
-        const { error: storageErr } = await supabase.storage.from('class-files').remove(fileNames);
-        if (storageErr) {
-          console.error('Chyba pri mazaní zo storage:', storageErr);
+        for (let i = 0; i < fileNames.length; i += 100) {
+          const { error: storageErr } = await supabase.storage
+            .from('class-files')
+            .remove(fileNames.slice(i, i + 100));
+          if (storageErr) console.error('Chyba storage batch:', storageErr);
         }
+        // Vymaž záznamy súborov z DB
+        await supabase.from('files').delete().in('folder_id', folderIdsToDelete);
       }
 
+      // 5. Vymaž koreňový priečinok — CASCADE automaticky vymaže podpriečinky z DB
       const { error: dbErr } = await supabase.from('folders').delete().eq('id', folder.id);
       if (dbErr) {
         alert('Nepodarilo sa vymazať priečinok z databázy: ' + dbErr.message);
       } else {
+        // Ak sme boli vnorení v mazanom priečinku, naviguj nahor
         if (currentFolder && folderIdsToDelete.includes(currentFolder.id)) {
-          const parentFolder = folder.parent_id ? folders.find(f => f.id === folder.parent_id) : null;
-          navigateToFolder(parentFolder);
+          const parentFolder = folder.parent_id
+            ? (allFolders || []).find(f => f.id === folder.parent_id)
+            : null;
+          navigateToFolder(parentFolder || null);
         }
       }
 
