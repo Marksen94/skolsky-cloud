@@ -190,13 +190,29 @@ CREATE POLICY "Admin delete any file"
 -- Potom spusti tieto policies pre storage:
 INSERT INTO storage.buckets (id, name, public) VALUES ('class-files', 'class-files', true);
 
--- Žiak uploaduje len do priečinka svojej triedy
+-- Žiak uploaduje len do priečinka svojej triedy (len povolené typy súboru)
 CREATE POLICY "Students upload to own class folder"
   ON storage.objects FOR INSERT
   WITH CHECK (
     bucket_id = 'class-files'
     AND (storage.foldername(name))[1] = (
       SELECT class FROM profiles WHERE id = auth.uid() AND status = 'approved'
+    )
+    AND lower(storage.extension(name)) IN (
+      'pdf', 'jpg', 'jpeg', 'png', 'webp', 'ppt', 'pptx', 'doc', 'docx', 'xls', 'xlsx'
+    )
+  );
+
+-- Admin môže nahrávať súbory do ľubovolnéj triedy
+CREATE POLICY "Admin upload to any class folder"
+  ON storage.objects FOR INSERT
+  WITH CHECK (
+    bucket_id = 'class-files'
+    AND EXISTS (
+      SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true
+    )
+    AND lower(storage.extension(name)) IN (
+      'pdf', 'jpg', 'jpeg', 'png', 'webp', 'ppt', 'pptx', 'doc', 'docx', 'xls', 'xlsx'
     )
   );
 
@@ -304,7 +320,7 @@ END $;
 
 DO $ BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'folders' AND policyname = 'Admin delete any folder'
+    SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND schemaname = 'storage' AND policyname = 'Admin delete any folder'
   ) THEN
     CREATE POLICY "Admin delete any folder"
       ON folders FOR DELETE
@@ -315,3 +331,36 @@ DO $ BEGIN
       );
   END IF;
 END $;
+
+-- ============================================================
+-- MIGRÁCIA — storage policies (webp + admin upload)
+-- Spusti v Supabase SQL Editore ak máš existujúcu produkciu
+-- ============================================================
+
+-- 1. Aktualizuj policies súborů v storage (DROP + CREATE)
+DROP POLICY IF EXISTS "Students upload to own class folder" ON storage.objects;
+CREATE POLICY "Students upload to own class folder"
+  ON storage.objects FOR INSERT
+  WITH CHECK (
+    bucket_id = 'class-files'
+    AND (storage.foldername(name))[1] = (
+      SELECT class FROM profiles WHERE id = auth.uid() AND status = 'approved'
+    )
+    AND lower(storage.extension(name)) IN (
+      'pdf', 'jpg', 'jpeg', 'png', 'webp', 'ppt', 'pptx', 'doc', 'docx', 'xls', 'xlsx'
+    )
+  );
+
+-- 2. Pridaj admin upload policy (ak ešte neexistuje)
+DROP POLICY IF EXISTS "Admin upload to any class folder" ON storage.objects;
+CREATE POLICY "Admin upload to any class folder"
+  ON storage.objects FOR INSERT
+  WITH CHECK (
+    bucket_id = 'class-files'
+    AND EXISTS (
+      SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true
+    )
+    AND lower(storage.extension(name)) IN (
+      'pdf', 'jpg', 'jpeg', 'png', 'webp', 'ppt', 'pptx', 'doc', 'docx', 'xls', 'xlsx'
+    )
+  );

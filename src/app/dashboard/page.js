@@ -233,17 +233,21 @@ export default function Dashboard() {
 
     const { data: { publicUrl } } = supabase.storage.from('class-files').getPublicUrl(path);
 
-    const { error: dbErr } = await supabase.from('files').insert({
+    const { data: inserted, error: dbErr } = await supabase.from('files').insert({
       uploaded_by: profile.id, class: profile.class, file_name: path,
       original_name: file.name, file_url: publicUrl, file_type: file.type,
       file_size: file.size, description: description.trim() || null,
       folder_id: currentFolder ? currentFolder.id : null,
-    });
+    }).select(`*, profiles(first_name, last_name)`).single();
     if (dbErr) { setUploadError('Chyba pri ukladaní: ' + dbErr.message); setUploading(false); return; }
+
+    // Optimistický update — pridaj nový súbor priamo do state bez reloadu
+    if (inserted) {
+      setFiles(prev => [inserted, ...prev]);
+    }
 
     setUploadSuccess(`"${file.name}" bol úspešne nahratý!`);
     setDescription('');
-    await loadFiles(profile.class);
     setUploading(false);
   }, [profile, description, currentFolder]);
 
@@ -445,7 +449,7 @@ export default function Dashboard() {
             </div>
             <h3 className="font-bold text-school-navy">Nahrať nový súbor</h3>
           </div>
-          <p className="text-xs text-school-muted mb-4 ml-10">PDF, obrázky (JPG, PNG), PowerPoint, Word, Excel • max 50 MB</p>
+          <p className="text-xs text-school-muted mb-4 ml-10">PDF, obrázky (JPG, PNG, WebP), PowerPoint, Word, Excel • max 50 MB</p>
 
           <input type="text" className="input-field text-sm mb-3"
             placeholder="Popis súboru (napr. Matematika – vzorce z Kap. 5) – voliteľné"

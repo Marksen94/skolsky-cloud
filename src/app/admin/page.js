@@ -94,7 +94,7 @@ export default function AdminPage() {
     if (!confirm(`Vymazať "${file.original_name}"?`)) return;
     await supabase.storage.from('class-files').remove([file.file_name]);
     await supabase.from('files').delete().eq('id', file.id);
-    await loadFiles();
+    setFiles(prev => prev.filter(f => f.id !== file.id));
   }
 
   // ── Načíta priečinky triedy pri zmene selectu ──────────────────────────────
@@ -145,7 +145,8 @@ export default function AdminPage() {
 
     const { data: { publicUrl } } = supabase.storage.from('class-files').getPublicUrl(path);
 
-    const { error: dbErr } = await supabase.from('files').insert({
+    // Vrátime vložený záznam cez .select().single() — dostaneme reálne ID a created_at
+    const { data: inserted, error: dbErr } = await supabase.from('files').insert({
       uploaded_by: adminProfile.id,
       class: uploadClass,
       file_name: path,
@@ -154,9 +155,17 @@ export default function AdminPage() {
       file_type: file.type,
       file_size: file.size,
       description: uploadDesc.trim() || null,
-      folder_id: uploadFolderId || null,   // ← nové
-    });
+      folder_id: uploadFolderId || null,
+    }).select('*').single();
     if (dbErr) { setUploadError('Chyba pri ukladaní: ' + dbErr.message); setUploading(false); return; }
+
+    // Optimistický update — pridaj nový súbor priamo do state, bez reloadu celého zoznamu
+    if (inserted) {
+      setFiles(prev => [
+        { ...inserted, profiles: { first_name: adminProfile.first_name, last_name: adminProfile.last_name } },
+        ...prev,
+      ]);
+    }
 
     const folderName = uploadFolderId
       ? uploadClassFolders.find(f => f.id === uploadFolderId)?.name
@@ -166,7 +175,6 @@ export default function AdminPage() {
       (folderName ? ` → priečinok „${folderName}"` : '') + '!'
     );
     setUploadDesc('');
-    await loadFiles();
     setUploading(false);
   }, [uploadClass, uploadDesc, uploadFolderId, uploadClassFolders, adminProfile]);
 
@@ -352,7 +360,7 @@ export default function AdminPage() {
                 </div>
                 <h3 className="font-bold text-school-navy">Nahrať súbor do triedy</h3>
               </div>
-              <p className="text-xs text-school-muted mb-4 ml-10">PDF, obrázky, PowerPoint, Word, Excel • max 50 MB</p>
+              <p className="text-xs text-school-muted mb-4 ml-10">PDF, obrázky (JPG, PNG, WebP), PowerPoint, Word, Excel • max 50 MB</p>
 
               {/* Riadok 1: Trieda + Popis */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
