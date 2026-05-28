@@ -123,6 +123,16 @@ CREATE POLICY "Approved students can create folders"
     AND created_by = auth.uid()
   );
 
+-- Admin môže vytvárať priečinky v ľubovolnej triede
+CREATE POLICY "Admins can create folders"
+  ON folders FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true
+    )
+    AND created_by = auth.uid()
+  );
+
 -- Žiak môže vymazať vlastný priečinok
 CREATE POLICY "Students delete own folders"
   ON folders FOR DELETE
@@ -310,6 +320,21 @@ END $;
 
 DO $ BEGIN
   IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'folders' AND policyname = 'Admins can create folders'
+  ) THEN
+    CREATE POLICY "Admins can create folders"
+      ON folders FOR INSERT
+      WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true
+        )
+        AND created_by = auth.uid()
+      );
+  END IF;
+END $;
+
+DO $ BEGIN
+  IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'folders' AND policyname = 'Students delete own folders'
   ) THEN
     CREATE POLICY "Students delete own folders"
@@ -320,7 +345,7 @@ END $;
 
 DO $ BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND schemaname = 'storage' AND policyname = 'Admin delete any folder'
+    SELECT 1 FROM pg_policies WHERE tablename = 'folders' AND policyname = 'Admin delete any folder'
   ) THEN
     CREATE POLICY "Admin delete any folder"
       ON folders FOR DELETE

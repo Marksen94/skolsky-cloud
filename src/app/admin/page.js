@@ -5,7 +5,11 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase, CLASSES, MAX_FILE_SIZE, formatFileSize, getFileIcon } from '@/lib/supabase';
 import { useDropzone } from 'react-dropzone';
-import { Users, FileText, CheckCircle, XCircle, Trash2, LogOut, Shield, Clock, Search, Filter, Download, CloudUpload, AlertCircle, Folder } from 'lucide-react';
+import {
+  Users, FileText, CheckCircle, XCircle, Trash2, LogOut, Shield, Clock,
+  Search, Filter, Download, CloudUpload, AlertCircle, Folder,
+  FolderOpen, X, ChevronRight, FolderPlus,
+} from 'lucide-react';
 
 const TABS = ['Žiadosti', 'Žiaci', 'Súbory'];
 
@@ -29,6 +33,14 @@ export default function AdminPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
+
+  // Správa priečinkov
+  const [adminCurrentFolder, setAdminCurrentFolder] = useState(null);
+  const [adminFolderPath, setAdminFolderPath] = useState([]);
+  const [showAdminCreateFolder, setShowAdminCreateFolder] = useState(false);
+  const [newAdminFolderName, setNewAdminFolderName] = useState('');
+  const [adminFolderSaving, setAdminFolderSaving] = useState(false);
+  const [adminFolderError, setAdminFolderError] = useState('');
 
   useEffect(() => { checkAdmin(); }, []);
 
@@ -68,21 +80,14 @@ export default function AdminPage() {
   async function deleteUser(id, name) {
     if (!confirm(`Vymazať žiaka ${name}?\n\nŽiak bude môcť znova použiť rovnaký email pri novej registrácii.`)) return;
     try {
-      // Pridáme Bearer token správcu do hlavičky — server ho overí
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch('/api/admin/delete-user', {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
         body: JSON.stringify({ userId: id }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        alert('Chyba pri mazaní: ' + (data.error || 'Neznáma chyba'));
-        return;
-      }
+      if (!res.ok) { alert('Chyba pri mazaní: ' + (data.error || 'Neznáma chyba')); return; }
       await loadApproved();
       await loadFiles();
     } catch (err) {
@@ -97,20 +102,120 @@ export default function AdminPage() {
     setFiles(prev => prev.filter(f => f.id !== file.id));
   }
 
-  // ── Načíta priečinky triedy pri zmene selectu ──────────────────────────────
+  // ── Načíta priečinky triedy + resetuje navigáciu ──────────────────────────
   async function handleUploadClassChange(cls) {
     setUploadClass(cls);
     setUploadFolderId('');
+    setAdminCurrentFolder(null);
+    setAdminFolderPath([]);
+    setShowAdminCreateFolder(false);
+    setAdminFolderError('');
     if (!cls) { setUploadClassFolders([]); return; }
     const { data } = await supabase
       .from('folders')
-      .select('id, name, parent_id')
+      .select('id, name, parent_id, created_by')
       .eq('class', cls)
       .order('name', { ascending: true });
     setUploadClassFolders(data || []);
   }
 
-  // Zostaví odsadený strom priečinkov pre <select>
+  // ── Navigácia v priečinkoch — synchronizuje aj uploadFolderId ─────────────
+  function adminNavigateToFolder(folder) {
+    setShowAdminCreateFolder(false);
+    setAdminFolderError('');
+    if (!folder) {
+      setAdminCurrentFolder(null);
+      setAdminFolderPath([]);
+      setUploadFolderId('');
+    } else {
+      const path = [];
+      let temp = folder;
+      while (temp) {
+        path.unshift(temp);
+        const parentId = temp.parent_id;
+        temp = parentId ? uploadClassFolders.find(f => f.id === parentId) : null;
+      }
+      setAdminCurrentFolder(folder);
+      setAdminFolderPath(path);
+      // Synchronizuj cieľový priečinok pre upload s aktuálnou navigáciou
+      setUploadFolderId(folder.id);
+    }
+  }
+
+  // ── Vytvorenie priečinka (max 3 úrovne) ───────────────────────────────────
+  async function adminCreateFolder(e) {
+    e.preventDefault();
+    if (!newAdminFolderName.trim()) return;
+    if (adminFolderPath.length >= 3) {
+      setAdminFolderError('Dosiahli ste maximálnu úroveň vnorenia (3).');
+      return;
+    }
+    setAdminFolderSaving(true);
+    setAdminFolderError('');
+
+    const { data: newFolder, error } = await supabase.from('folders').insert({
+      name: newAdminFolderName.trim(),
+      class: uploadClass,
+      parent_id: adminCurrentFolder ? adminCurrentFolder.id : null,
+      created_by: adminProfile.id,
+    }).select('id, name, parent_id, created_by').single();
+
+    if (error) {
+      setAdminFolderError('Nepodarilo sa vytvoriť priečinok: ' + error.message);
+      setAdminFolderSaving(false);
+      return;
+    }
+
+    // Optimistický update — pridaj priečinok do lokálneho state bez reloadu
+    if (newFolder) setUploadClassFolders(prev => [...prev, newFolder]);
+    setNewAdminFolderName('');
+    setShowAdminCreateFolder(false);
+    setAdminFolderSaving(false);
+  }
+
+  // ── Zmazanie priečinka (admin môže zmazať akýkoľvek) ─────────────────────
+  async function adminDeleteFolder(folder) {
+    if (!confirm(`Vymazať priečinok "${folder.name}" a všetok jeho obsah?`)) return;
+
+    // Zozbieraj IDs všetkých potomkov vrátane samotného priečinka
+    const getDescendantIds = (folderId, list) => {
+      let ids = [folderId];
+      for (const f of list.filter(f => f.parent_id === folderId)) {
+        ids = [...ids, ...getDescendantIds(f.id, list)];
+      }
+      return ids;
+    };
+    const folderIdsToDelete = getDescendantIds(folder.id, uploadClassFolders);
+
+    // Vymaž súbory zo storage + DB
+    const { data: filesToDelete } = await supabase
+      .from('files').select('file_name').in('folder_id', folderIdsToDelete);
+    if (filesToDelete?.length > 0) {
+      const names = filesToDelete.map(f => f.file_name);
+      for (let i = 0; i < names.length; i += 100) {
+        await supabase.storage.from('class-files').remove(names.slice(i, i + 100));
+      }
+      await supabase.from('files').delete().in('folder_id', folderIdsToDelete);
+      setFiles(prev => prev.filter(f => !folderIdsToDelete.includes(f.folder_id)));
+    }
+
+    // Vymaž koreňový priečinok — CASCADE zmaže podpriečinky z DB
+    const { error: dbErr } = await supabase.from('folders').delete().eq('id', folder.id);
+    if (dbErr) { alert('Chyba pri mazaní priečinka: ' + dbErr.message); return; }
+
+    // Optimistický update lokálneho state
+    setUploadClassFolders(prev => prev.filter(f => !folderIdsToDelete.includes(f.id)));
+    if (uploadFolderId && folderIdsToDelete.includes(uploadFolderId)) setUploadFolderId('');
+
+    // Ak sme boli vnorení v zmazanom priečinku, naviguj nahor
+    if (adminCurrentFolder && folderIdsToDelete.includes(adminCurrentFolder.id)) {
+      const parent = folder.parent_id
+        ? uploadClassFolders.find(f => f.id === folder.parent_id) : null;
+      adminNavigateToFolder(parent || null);
+    }
+  }
+
+  // ── Zostaví odsadený strom priečinkov pre upload <select> ────────────────
   function buildFolderOptions(folderList, parentId = null, depth = 0) {
     const items = folderList.filter(f => (f.parent_id || null) === parentId);
     let options = [];
@@ -122,7 +227,6 @@ export default function AdminPage() {
     }
     return options;
   }
-  // ──────────────────────────────────────────────────────────────────────────
 
   const onDrop = useCallback(async (accepted, rejected) => {
     setUploadError(''); setUploadSuccess('');
@@ -145,7 +249,6 @@ export default function AdminPage() {
 
     const { data: { publicUrl } } = supabase.storage.from('class-files').getPublicUrl(path);
 
-    // Vrátime vložený záznam cez .select().single() — dostaneme reálne ID a created_at
     const { data: inserted, error: dbErr } = await supabase.from('files').insert({
       uploaded_by: adminProfile.id,
       class: uploadClass,
@@ -159,7 +262,6 @@ export default function AdminPage() {
     }).select('*').single();
     if (dbErr) { setUploadError('Chyba pri ukladaní: ' + dbErr.message); setUploading(false); return; }
 
-    // Optimistický update — pridaj nový súbor priamo do state, bez reloadu celého zoznamu
     if (inserted) {
       setFiles(prev => [
         { ...inserted, profiles: { first_name: adminProfile.first_name, last_name: adminProfile.last_name } },
@@ -168,8 +270,7 @@ export default function AdminPage() {
     }
 
     const folderName = uploadFolderId
-      ? uploadClassFolders.find(f => f.id === uploadFolderId)?.name
-      : null;
+      ? uploadClassFolders.find(f => f.id === uploadFolderId)?.name : null;
     setUploadSuccess(
       `"${file.name}" bol nahratý do triedy ${uploadClass}` +
       (folderName ? ` → priečinok „${folderName}"` : '') + '!'
@@ -202,10 +303,12 @@ export default function AdminPage() {
   });
 
   const folderOptions = buildFolderOptions(uploadClassFolders);
+  const adminCurrentFolderId = adminCurrentFolder ? adminCurrentFolder.id : null;
+  const adminVisibleFolders = uploadClassFolders.filter(f => (f.parent_id || null) === adminCurrentFolderId);
 
   if (loading) return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/40 flex items-center justify-center">
-      <div className="w-10 h-10 border-4 border-school-blue border-t-transparent rounded-full animate-spin" style={{borderWidth:'3px'}} />
+      <div className="w-10 h-10 border-4 border-school-blue border-t-transparent rounded-full animate-spin" style={{ borderWidth: '3px' }} />
     </div>
   );
 
@@ -259,7 +362,7 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {/* Žiadosti */}
+        {/* ── Žiadosti ── */}
         {tab === 'Žiadosti' && (
           <div className="card shadow-card animate-fade-in">
             <h3 className="font-bold text-school-navy mb-5 flex items-center gap-2" style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem' }}>
@@ -299,7 +402,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Žiaci */}
+        {/* ── Žiaci ── */}
         {tab === 'Žiaci' && (
           <div className="card shadow-card animate-fade-in">
             <div className="flex flex-col sm:flex-row gap-3 mb-5">
@@ -336,7 +439,8 @@ export default function AdminPage() {
                         {user.status === 'rejected' && (
                           <button onClick={() => approveUser(user.id)} className="text-emerald-600 hover:text-emerald-800 text-xs font-semibold">Schváliť</button>
                         )}
-                        <button onClick={() => deleteUser(user.id, `${user.first_name} ${user.last_name}`)} className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-400 hover:text-red-600 transition-all">
+                        <button onClick={() => deleteUser(user.id, `${user.first_name} ${user.last_name}`)}
+                          className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-400 hover:text-red-600 transition-all">
                           <Trash2 size={14} />
                         </button>
                       </td>
@@ -349,10 +453,11 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Súbory */}
+        {/* ── Súbory ── */}
         {tab === 'Súbory' && (
           <div className="space-y-4 animate-fade-in">
-            {/* Admin upload sekcia */}
+
+            {/* Upload sekcia */}
             <div className="card shadow-card">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
@@ -362,61 +467,51 @@ export default function AdminPage() {
               </div>
               <p className="text-xs text-school-muted mb-4 ml-10">PDF, obrázky (JPG, PNG, WebP), PowerPoint, Word, Excel • max 50 MB</p>
 
-              {/* Riadok 1: Trieda + Popis */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <div>
                   <label className="block text-xs font-semibold text-school-navy mb-1">Trieda *</label>
-                  <select
-                    className="input-field py-2 text-sm"
-                    value={uploadClass}
-                    onChange={e => handleUploadClassChange(e.target.value)}
-                    disabled={uploading}
-                  >
+                  <select className="input-field py-2 text-sm" value={uploadClass}
+                    onChange={e => handleUploadClassChange(e.target.value)} disabled={uploading}>
                     <option value="">-- Vyber triedu --</option>
                     {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-school-navy mb-1">Popis (voliteľné)</label>
-                  <input
-                    type="text"
-                    className="input-field py-2 text-sm"
-                    placeholder="napr. Fyzika – tabuľky..."
-                    value={uploadDesc}
-                    onChange={e => setUploadDesc(e.target.value)}
-                    disabled={uploading}
-                  />
+                  <input type="text" className="input-field py-2 text-sm" placeholder="napr. Fyzika – tabuľky..."
+                    value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} disabled={uploading} />
                 </div>
               </div>
 
-              {/* Riadok 2: Priečinok (zobrazí sa až po výbere triedy) */}
+              {/* Cieľový priečinok — synchronizovaný s navigáciou nižšie */}
               {uploadClass && (
                 <div className="mb-3">
                   <label className="block text-xs font-semibold text-school-navy mb-1 flex items-center gap-1">
-                    <Folder size={11} className="text-amber-500" />
-                    Priečinok (voliteľné)
+                    <Folder size={11} className="text-amber-500" /> Cieľový priečinok pre nahrávanie
                   </label>
-                  {folderOptions.length === 0 ? (
-                    <p className="text-xs text-school-muted italic px-1">
-                      Trieda {uploadClass} zatiaľ nemá žiadne priečinky — súbor bude v koreňovom zobrazení.
-                    </p>
+                  {adminCurrentFolder ? (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-sm">
+                      <Folder size={14} className="text-amber-500 flex-shrink-0" />
+                      <span className="font-semibold text-amber-800 flex-1">
+                        {adminFolderPath.map(f => f.name).join(' › ')}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => adminNavigateToFolder(null)}
+                        className="text-xs text-amber-500 hover:text-amber-700 font-medium underline underline-offset-2">
+                        Zrušiť
+                      </button>
+                    </div>
                   ) : (
-                    <select
-                      className="input-field py-2 text-sm"
-                      value={uploadFolderId}
-                      onChange={e => setUploadFolderId(e.target.value)}
-                      disabled={uploading}
-                    >
-                      <option value="">— Bez priečinka (koreň triedy) —</option>
-                      {folderOptions.map(opt => (
-                        <option key={opt.id} value={opt.id}>{opt.label}</option>
-                      ))}
-                    </select>
+                    <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-school-muted">
+                      {folderOptions.length === 0
+                        ? `Trieda ${uploadClass} zatiaľ nemá žiadne priečinky — súbor bude v koreňovom zobrazení.`
+                        : 'Koreň triedy — klikni na priečinok nižšie pre výber'}
+                    </div>
                   )}
                 </div>
               )}
 
-              {/* Dropzone */}
               <div {...getRootProps()} className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all duration-200
                 ${isDragActive ? 'border-school-blue bg-blue-50 scale-[1.01]' : 'border-gray-200 hover:border-school-blue hover:bg-blue-50/30'}
                 ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
@@ -454,7 +549,113 @@ export default function AdminPage() {
               )}
             </div>
 
-            {/* Zoznam súborov */}
+            {/* ── Správa priečinkov (zobrazí sa po výbere triedy) ── */}
+            {uploadClass && (
+              <div className="card shadow-card">
+                {/* Hlavička */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center">
+                      <FolderOpen size={16} className="text-amber-500" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-school-navy text-sm">Priečinky triedy {uploadClass}</h3>
+                      <p className="text-xs text-school-muted">Kliknutím na priečinok ho vybereš ako cieľ nahrávanie • Max 3 úrovne</p>
+                    </div>
+                  </div>
+                  {adminFolderPath.length < 3 && (
+                    <button
+                      onClick={() => { setShowAdminCreateFolder(true); setAdminFolderError(''); setNewAdminFolderName(''); }}
+                      className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors">
+                      <FolderPlus size={13} /> Nový priečinok
+                    </button>
+                  )}
+                </div>
+
+                {/* Breadcrumbs */}
+                <div className="flex items-center gap-1 flex-wrap mb-4 text-sm">
+                  <button
+                    onClick={() => adminNavigateToFolder(null)}
+                    className={`px-2 py-1 rounded-lg transition-colors ${
+                      !adminCurrentFolder ? 'bg-school-navy text-white font-semibold' : 'text-school-muted hover:text-school-navy hover:bg-gray-100'
+                    }`}>
+                    Trieda {uploadClass}
+                  </button>
+                  {adminFolderPath.map((f, i) => (
+                    <span key={f.id} className="flex items-center gap-1">
+                      <ChevronRight size={13} className="text-gray-300" />
+                      <button
+                        onClick={() => adminNavigateToFolder(f)}
+                        className={`px-2 py-1 rounded-lg transition-colors ${
+                          i === adminFolderPath.length - 1 ? 'bg-school-navy text-white font-semibold' : 'text-school-muted hover:text-school-navy hover:bg-gray-100'
+                        }`}>
+                        {f.name}
+                      </button>
+                    </span>
+                  ))}
+                </div>
+
+                {/* Formulár na vytvorenie priečinka */}
+                {showAdminCreateFolder && (
+                  <form onSubmit={adminCreateFolder}
+                    className="flex items-center gap-2 mb-4 p-3 bg-amber-50/60 rounded-2xl border border-amber-100">
+                    <Folder size={16} className="text-amber-500 flex-shrink-0" />
+                    <input
+                      type="text"
+                      className="input-field py-1.5 text-sm flex-1"
+                      placeholder="Názov priečinka..."
+                      value={newAdminFolderName}
+                      onChange={e => setNewAdminFolderName(e.target.value)}
+                      autoFocus
+                      maxLength={60}
+                    />
+                    <button type="submit" disabled={adminFolderSaving} className="btn-primary py-1.5 px-3 text-sm">
+                      {adminFolderSaving ? '...' : 'Vytvoriť'}
+                    </button>
+                    <button type="button" onClick={() => setShowAdminCreateFolder(false)}
+                      className="w-7 h-7 rounded-lg hover:bg-gray-200 flex items-center justify-center text-school-muted transition-colors">
+                      <X size={14} />
+                    </button>
+                  </form>
+                )}
+                {adminFolderError && (
+                  <div className="mb-3 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-xl text-sm">
+                    <AlertCircle size={13} /> {adminFolderError}
+                  </div>
+                )}
+
+                {/* Mriežka priečinkov */}
+                {adminVisibleFolders.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {adminVisibleFolders.map(folder => {
+                      const childCount = uploadClassFolders.filter(f => f.parent_id === folder.id).length;
+                      const isSelected = uploadFolderId === folder.id;
+                      return (
+                        <AdminFolderCard
+                          key={folder.id}
+                          folder={folder}
+                          childCount={childCount}
+                          isSelected={isSelected}
+                          onOpen={() => adminNavigateToFolder(folder)}
+                          onDelete={() => adminDeleteFolder(folder)}
+                        />
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-2">
+                      <Folder size={20} className="text-gray-300" />
+                    </div>
+                    <p className="text-school-muted text-sm">
+                      {adminCurrentFolder ? 'Tento priečinok neobsahuje podpriečinky.' : `Trieda ${uploadClass} nemá žiadne priečinky.`}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Zoznam všetkých súborov */}
             <div className="card shadow-card">
               <div className="flex flex-col sm:flex-row gap-3 mb-4">
                 <div className="relative flex-1">
@@ -497,10 +698,12 @@ export default function AdminPage() {
                         <td className="py-3 px-3 text-school-muted text-xs">{new Date(file.created_at).toLocaleDateString('sk-SK')}</td>
                         <td className="py-3 px-3">
                           <div className="flex items-center justify-end gap-2">
-                            <a href={file.file_url} target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-lg hover:bg-blue-50 flex items-center justify-center text-school-blue transition-all">
+                            <a href={file.file_url} target="_blank" rel="noopener noreferrer"
+                              className="w-7 h-7 rounded-lg hover:bg-blue-50 flex items-center justify-center text-school-blue transition-all">
                               <Download size={14} />
                             </a>
-                            <button onClick={() => deleteFile(file)} className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-400 hover:text-red-600 transition-all">
+                            <button onClick={() => deleteFile(file)}
+                              className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-400 hover:text-red-600 transition-all">
                               <Trash2 size={14} />
                             </button>
                           </div>
@@ -519,6 +722,37 @@ export default function AdminPage() {
           © 2026 RU-MONT s. r. o., Spojená škola Sečovce
         </p>
       </main>
+    </div>
+  );
+}
+
+function AdminFolderCard({ folder, childCount, isSelected, onOpen, onDelete }) {
+  return (
+    <div className="group relative">
+      <button
+        onClick={onOpen}
+        className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 hover:shadow-sm
+          ${isSelected
+            ? 'border-amber-400 bg-gradient-to-br from-amber-100 to-orange-100 ring-2 ring-amber-300'
+            : 'border-amber-100 bg-gradient-to-br from-amber-50/60 to-orange-50/30 hover:from-amber-100/80 hover:to-orange-100/50 hover:border-amber-200'
+          }`}>
+        <div className="flex items-start justify-between mb-2">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isSelected ? 'bg-amber-200' : 'bg-amber-100'}`}>
+            <Folder size={20} className="text-amber-600" />
+          </div>
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); onDelete(); }}
+            className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-400 hover:text-red-600 transition-all">
+            <Trash2 size={12} />
+          </button>
+        </div>
+        <p className="font-semibold text-school-navy text-sm leading-tight line-clamp-2 mb-1">{folder.name}</p>
+        <p className="text-xs text-school-muted">
+          {childCount > 0 ? `${childCount} podpriečinkov` : 'Bez podpriečinkov'}
+          {isSelected && <span className="ml-1 text-amber-600 font-semibold">✓ Vybraný</span>}
+        </p>
+      </button>
     </div>
   );
 }
