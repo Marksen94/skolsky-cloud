@@ -441,41 +441,77 @@ export default function Dashboard() {
           <p className="text-school-muted mt-1 text-sm">{files.length} materiálov zdieľaných vašou triedou</p>
         </div>
 
-        {/* Upload */}
-        <div className="card shadow-card animate-slide-up">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-              <CloudUpload size={16} className="text-school-blue" />
-            </div>
-            <h3 className="font-bold text-school-navy">Nahrať nový súbor</h3>
-          </div>
-          <p className="text-xs text-school-muted mb-4 ml-10">PDF, obrázky (JPG, PNG, WebP), PowerPoint, Word, Excel • max 50 MB</p>
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up">
+          <StatCard
+            icon={<BookOpen size={20} className="text-blue-500" />}
+            title="Súbory"
+            value={files.length}
+            subtitle="celkem nahráno"
+            color="blue"
+          />
+          <StatCard
+            icon={<Folder size={20} className="text-amber-500" />}
+            title="Priečinky"
+            value={folders.filter(f => !f.parent_id).length}
+            subtitle="hlavní priečinkov"
+            color="amber"
+          />
+          <StatCard
+            icon={<CloudUpload size={20} className="text-green-500" />}
+            title="Dátum"
+            value={files.length > 0 ? new Date(files[0].created_at).toLocaleDateString('sk-SK', { day: '2-digit', month: 'short' }) : '--'}
+            subtitle="poslastný upload"
+            color="green"
+          />
+          <StatCard
+            icon={<Clock size={20} className="text-purple-500" />}
+            title="Veľkosť"
+            value={files.length > 0 ? formatFileSize(files.reduce((sum, f) => sum + (f.file_size || 0), 0)) : '0 B'}
+            subtitle="všetky súbory"
+            color="purple"
+          />
+        </div>
 
-          <input type="text" className="input-field text-sm mb-3"
+        {/* Upload */}
+        <div className="card shadow-card hover:shadow-lg transition-shadow animate-slide-up">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl flex items-center justify-center">
+              <CloudUpload size={18} className="text-school-blue" />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg text-school-navy">Nahrať nový súbor</h3>
+              <p className="text-xs text-school-muted">PDF, obrázky (JPG, PNG, WebP), PowerPoint, Word, Excel • max 50 MB</p>
+            </div>
+          </div>
+
+          <input type="text" className="input-field text-sm mb-4"
             placeholder="Popis súboru (napr. Matematika – vzorce z Kap. 5) – voliteľné"
             value={description} onChange={e => setDescription(e.target.value)} disabled={uploading} />
 
-          <div {...getRootProps()} className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-200
-            ${isDragActive ? 'border-school-blue bg-blue-50 scale-[1.01]' : 'border-gray-200 hover:border-school-blue hover:bg-blue-50/30'}
-            ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+          <div {...getRootProps()} className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-300
+            ${isDragActive ? 'border-school-blue bg-blue-50 scale-[1.02]' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/40'}
+            ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}>
             <input {...getInputProps()} />
             {uploading ? (
-              <div>
-                <div className="w-10 h-10 border-4 border-school-blue border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-school-blue font-semibold">Nahrávam súbor...</p>
+              <div className="flex flex-col items-center">
+                <div className="w-12 h-12 border-4 border-school-blue border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-school-blue font-semibold text-base">Nahrávam súbor...</p>
               </div>
             ) : isDragActive ? (
-              <div>
-                <Upload size={28} className="text-school-blue mx-auto mb-2" />
-                <p className="text-school-blue font-semibold">Pusti súbor sem!</p>
+              <div className="flex flex-col items-center">
+                <div className="w-14 h-14 bg-school-blue/10 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                  <Upload size={28} className="text-school-blue" />
+                </div>
+                <p className="text-school-blue font-semibold text-base">Pusti súbor sem!</p>
               </div>
             ) : (
-              <div>
-                <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                  <Upload size={22} className="text-school-blue" />
+              <div className="flex flex-col items-center">
+                <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Upload size={28} className="text-school-blue" />
                 </div>
-                <p className="text-school-navy font-semibold">Pretiahni súbor sem</p>
-                <p className="text-school-muted text-sm mt-1">alebo klikni pre výber zo zariadenia</p>
+                <p className="text-school-navy font-semibold text-base">Pretiahni súbor sem</p>
+                <p className="text-school-muted text-sm mt-2">alebo klikni pre výber zo zariadenia</p>
               </div>
             )}
           </div>
@@ -620,6 +656,26 @@ export default function Dashboard() {
         </p>
       </main>
     </div>
+  );
+}
+
+function StatCard({ icon, title, value, subtitle, color }) {
+  const colorMap = {
+    blue: 'from-blue-50 to-blue-100 border-blue-100 text-school-blue',
+    amber: 'from-amber-50 to-orange-100 border-amber-100 text-amber-600',
+    green: 'from-emerald-50 to-green-100 border-emerald-100 text-emerald-600',
+    purple: 'from-violet-50 to-purple-100 border-violet-100 text-violet-600',
+  };
+
+  return (
+    <article className={`rounded-3xl border bg-gradient-to-br ${colorMap[color] || colorMap.blue} p-4 shadow-card hover:shadow-card-hover transition-all duration-200`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="w-10 h-10 rounded-2xl bg-white/80 flex items-center justify-center shadow-sm">{icon}</div>
+        <span className="text-[11px] uppercase tracking-[0.18em] text-school-muted">{title}</span>
+      </div>
+      <p className="text-2xl font-bold text-school-navy">{value}</p>
+      <p className="text-xs text-school-muted mt-1">{subtitle}</p>
+    </article>
   );
 }
 

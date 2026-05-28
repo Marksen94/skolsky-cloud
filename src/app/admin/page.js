@@ -297,6 +297,7 @@ export default function AdminPage() {
     const name = `${u.first_name} ${u.last_name} ${u.email} ${u.class}`.toLowerCase();
     return name.includes(userSearch.toLowerCase()) && (classFilter ? u.class === classFilter : true);
   });
+  const uniqueClasses = new Set(approved.map(u => u.class)).size;
   const filteredFiles = files.filter(f => {
     const text = `${f.original_name} ${f.description || ''} ${f.profiles?.first_name || ''} ${f.class}`.toLowerCase();
     return text.includes(fileSearch.toLowerCase()) && (classFilter ? f.class === classFilter : true);
@@ -342,18 +343,19 @@ export default function AdminPage() {
 
       <main className="max-w-6xl mx-auto px-4 py-8">
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8 animate-slide-up">
-          <StatCard color="amber" icon={<Clock size={18} />} label="Čakajúce žiadosti" value={pending.length} />
-          <StatCard color="blue" icon={<Users size={18} />} label="Schválení žiaci" value={approved.filter(u => u.status === 'approved').length} />
-          <StatCard color="emerald" icon={<FileText size={18} />} label="Nahratých súborov" value={files.length} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8 animate-slide-up">
+          <StatCard color="amber" icon={<Clock size={18} />} label="Čakajúce žiadosti" value={pending.length} hint="Na schválenie" />
+          <StatCard color="blue" icon={<Users size={18} />} label="Schválení žiaci" value={approved.filter(u => u.status === 'approved').length} hint="Aktívni používatelia" />
+          <StatCard color="emerald" icon={<FileText size={18} />} label="Nahratých súborov" value={files.length} hint="Všetky triedy" />
+          <StatCard color="violet" icon={<Shield size={18} />} label="Aktívne triedy" value={uniqueClasses} hint="Rozdelenie používateľov" />
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-white rounded-2xl p-1.5 shadow-sm border border-gray-100 w-fit animate-fade-in">
+        <div className="flex flex-wrap gap-1 mb-6 bg-white/85 rounded-3xl p-1.5 shadow-card border border-gray-100 w-fit animate-fade-in backdrop-blur-sm">
           {TABS.map(t => (
             <button key={t} onClick={() => setTab(t)}
-              className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200
-                ${tab === t ? 'bg-school-navy text-white shadow-sm' : 'text-school-muted hover:text-school-navy'}`}>
+              className={`px-5 py-2 rounded-2xl text-sm font-semibold transition-all duration-200
+                ${tab === t ? 'bg-gradient-to-r from-school-navy to-school-blue text-white shadow-md' : 'text-school-muted hover:text-school-navy hover:bg-gray-50'}`}>
               {t}
               {t === 'Žiadosti' && pending.length > 0 && (
                 <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">{pending.length}</span>
@@ -378,7 +380,7 @@ export default function AdminPage() {
             ) : (
               <div className="space-y-3">
                 {pending.map(user => (
-                  <div key={user.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
+                  <div key={user.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100 rounded-3xl shadow-sm hover:shadow-md transition-all duration-200">
                     <div>
                       <p className="font-bold text-school-navy flex items-center gap-2">
                         {user.first_name} {user.last_name}
@@ -404,7 +406,7 @@ export default function AdminPage() {
 
         {/* ── Žiaci ── */}
         {tab === 'Žiaci' && (
-          <div className="card shadow-card animate-fade-in">
+          <div className="card shadow-card hover:shadow-card-hover transition-all duration-200 animate-fade-in">
             <div className="flex flex-col sm:flex-row gap-3 mb-5">
               <div className="relative flex-1">
                 <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-school-muted" />
@@ -458,7 +460,7 @@ export default function AdminPage() {
           <div className="space-y-4 animate-fade-in">
 
             {/* Upload sekcia */}
-            <div className="card shadow-card">
+            <div className="card shadow-card hover:shadow-card-hover transition-all duration-200">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
                   <CloudUpload size={16} className="text-school-blue" />
@@ -551,7 +553,7 @@ export default function AdminPage() {
 
             {/* ── Správa priečinkov (zobrazí sa po výbere triedy) ── */}
             {uploadClass && (
-              <div className="card shadow-card">
+              <div className="card shadow-card hover:shadow-card-hover transition-all duration-200">
                 {/* Hlavička */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
@@ -656,7 +658,7 @@ export default function AdminPage() {
             )}
 
             {/* Zoznam všetkých súborov */}
-            <div className="card shadow-card">
+            <div className="card shadow-card hover:shadow-card-hover transition-all duration-200">
               <div className="flex flex-col sm:flex-row gap-3 mb-4">
                 <div className="relative flex-1">
                   <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-school-muted" />
@@ -757,16 +759,21 @@ function AdminFolderCard({ folder, childCount, isSelected, onOpen, onDelete }) {
   );
 }
 
-function StatCard({ icon, label, value, color }) {
+function StatCard({ icon, label, value, color, hint }) {
   const colors = {
-    amber: 'bg-amber-50 border-amber-100 text-amber-600',
-    blue: 'bg-blue-50 border-blue-100 text-blue-600',
-    emerald: 'bg-emerald-50 border-emerald-100 text-emerald-600',
+    amber: 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100 text-amber-600',
+    blue: 'bg-gradient-to-br from-blue-50 to-sky-50 border-blue-100 text-blue-600',
+    emerald: 'bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-100 text-emerald-600',
+    violet: 'bg-gradient-to-br from-violet-50 to-purple-50 border-violet-100 text-violet-600',
   };
   return (
-    <div className={`rounded-2xl border p-5 ${colors[color]}`}>
-      <div className="flex items-center justify-between mb-3">{icon}<span className="text-xs font-semibold opacity-60 uppercase tracking-wide">{label}</span></div>
+    <article className={`rounded-3xl border p-5 shadow-card hover:shadow-card-hover transition-all duration-200 ${colors[color] || colors.blue}`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="w-10 h-10 rounded-2xl bg-white/80 flex items-center justify-center shadow-sm">{icon}</div>
+        <span className="text-[11px] uppercase tracking-[0.18em] text-school-muted">{label}</span>
+      </div>
       <p className="text-3xl font-bold text-school-navy" style={{ fontFamily: 'Sora, sans-serif' }}>{value}</p>
-    </div>
+      {hint && <p className="text-xs text-school-muted mt-1">{hint}</p>}
+    </article>
   );
 }
