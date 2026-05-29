@@ -96,7 +96,7 @@ export default function LoginPage() {
                 <span className="text-[10px] font-bold tracking-[0.2em] text-blue-400/70 uppercase">2026</span>
               </div>
               <h1 className="text-white font-bold text-lg leading-tight" style={{ fontFamily: 'Sora, sans-serif' }}>
-                Spojená škola Sečovce
+                Spojená škola Kollárova 17, Sečovce
               </h1>
             </div>
           </div>
@@ -187,13 +187,9 @@ export default function LoginPage() {
             <div className="p-9">
               {/* Hlavička */}
               <div className="mb-8">
-                <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4"
-                  style={{ background: 'linear-gradient(135deg, #0D1F3C, #1A3A6B)' }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-                    <polyline points="10 17 15 12 10 7" />
-                    <line x1="15" y1="12" x2="3" y2="12" />
-                  </svg>
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4 p-1.5"
+                  style={{ background: 'linear-gradient(135deg, #0D1F3C, #1A3A6B)', border: '1px solid rgba(255,255,255,0.15)' }}>
+                  <Image src="/logo.png" alt="Logo školy" width={36} height={36} className="object-contain" />
                 </div>
                 <h2 className="text-2xl font-bold mb-1" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>
                   Vitaj späť 👋
@@ -280,7 +276,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-center text-xs mt-5" style={{ color: 'var(--text-dim)' }}>
-            Kollárova 17, Sečovce &nbsp;·&nbsp; Školský cloudový systém
+            Školský cloudový systém
           </p>
         </div>
       </div>
