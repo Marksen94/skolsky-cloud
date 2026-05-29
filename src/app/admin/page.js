@@ -411,14 +411,14 @@ export default function AdminPage() {
         {tab === 'Žiaci' && (
           <div className="card shadow-card hover:shadow-card-hover transition-all duration-200 animate-fade-in">
             <div className="flex flex-col sm:flex-row gap-3 mb-5">
-              <div className="relative flex-1">
-                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-school-muted" />
-                <input className="input-field pl-9 py-2 text-sm" placeholder="Hľadaj meno alebo email..."
+              <div className="input-with-icon flex-1">
+                <Search size={15} className="input-icon" />
+                <input className="input-inner text-sm" placeholder="Hľadaj meno alebo email..."
                   value={userSearch} onChange={e => setUserSearch(e.target.value)} />
               </div>
-              <div className="relative">
-                <Filter size={15} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
-                <select className="input-field pl-10 py-2 text-sm" value={classFilter} onChange={e => setClassFilter(e.target.value)}>
+              <div className="input-with-icon">
+                <Filter size={15} className="input-icon" />
+                <select className="input-inner text-sm" value={classFilter} onChange={e => setClassFilter(e.target.value)}>
                   <option value="">Všetky triedy</option>
                   {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
@@ -670,14 +670,14 @@ export default function AdminPage() {
             {/* Zoznam všetkých súborov */}
             <div className="card shadow-card hover:shadow-card-hover transition-all duration-200">
               <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                <div className="relative flex-1">
-                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
-                  <input className="input-field pl-9 py-2 text-sm" placeholder="Hľadaj súbor..."
+                <div className="input-with-icon flex-1">
+                  <Search size={15} className="input-icon" />
+                  <input className="input-inner text-sm" placeholder="Hľadaj súbor..."
                     value={fileSearch} onChange={e => setFileSearch(e.target.value)} />
                 </div>
-                <div className="relative">
-                  <Filter size={15} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
-                  <select className="input-field pl-10 py-2 text-sm" value={classFilter} onChange={e => setClassFilter(e.target.value)}>
+                <div className="input-with-icon">
+                  <Filter size={15} className="input-icon" />
+                  <select className="input-inner text-sm" value={classFilter} onChange={e => setClassFilter(e.target.value)}>
                     <option value="">Všetky triedy</option>
                     {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
