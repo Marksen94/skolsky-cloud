@@ -465,17 +465,21 @@ export default function AdminPage() {
         {tab === 'Súbory' && (
           <div className="space-y-4 animate-fade-in">
 
-            {/* Upload sekcia */}
+            {/* ── Nahrávanie + Priečinky v jednej karte ── */}
             <div className="card shadow-card hover:shadow-card-hover transition-all duration-200">
-              <div className="flex items-center gap-2 mb-1">
+              {/* Hlavička */}
+              <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
                   <CloudUpload size={16} style={{ color: 'var(--accent-link)' }} />
                 </div>
-                <h3 className="font-bold" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>Nahrať súbor do triedy</h3>
+                <div>
+                  <h3 className="font-bold" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>Nahrať súbor do triedy</h3>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>PDF, obrázky, PowerPoint, Word, Excel • max 50 MB</p>
+                </div>
               </div>
-              <p className="text-xs mb-4 ml-10" style={{ color: 'var(--text-muted)' }}>PDF, obrázky (JPG, PNG, WebP), PowerPoint, Word, Excel • max 50 MB</p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              {/* Trieda + Popis */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text)' }}>Trieda *</label>
                   <select className="input-field py-2 text-sm" value={uploadClass}
@@ -491,181 +495,168 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Cieľový priečinok — synchronizovaný s navigáciou nižšie */}
-              {uploadClass && (
-                <div className="mb-3">
-                  <label className="block text-xs font-semibold mb-1 flex items-center gap-1" style={{ color: 'var(--text)' }}>
-                    <Folder size={11} className="text-amber-500" /> Cieľový priečinok pre nahrávanie
-                  </label>
-                  {adminCurrentFolder ? (
-                    <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-sm">
-                      <Folder size={14} className="text-amber-500 flex-shrink-0" />
-                      <span className="font-semibold text-amber-800 flex-1">
-                        {adminFolderPath.map(f => f.name).join(' › ')}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => adminNavigateToFolder(null)}
-                        className="text-xs text-amber-500 hover:text-amber-700 font-medium underline underline-offset-2">
-                        Zrušiť
-                      </button>
+              {/* Hlavný obsah: dropzone + priecinkovy panel vedla seba */}
+              <div className={`grid gap-4 ${uploadClass ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+
+                {/* ─ Dropzone ─ */}
+                <div className="flex flex-col gap-3">
+                  {/* Cieľový priečinok badge */}
+                  {uploadClass && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium"
+                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                      <Folder size={13} className="text-amber-500 flex-shrink-0" />
+                      {adminCurrentFolder ? (
+                        <>
+                          <span style={{ color: 'var(--text)' }}>{adminFolderPath.map(f => f.name).join(' › ')}</span>
+                          <button type="button" onClick={() => adminNavigateToFolder(null)}
+                            className="ml-auto text-red-400 hover:text-red-600 transition-colors">
+                            <X size={13} />
+                          </button>
+                        </>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}>Koreň triedy — vyber priečinok vpravo</span>
+                      )}
                     </div>
-                  ) : (
-                    <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-school-muted">
-                      {folderOptions.length === 0
-                        ? `Trieda ${uploadClass} zatiaľ nemá žiadne priečinky — súbor bude v koreňovom zobrazení.`
-                        : 'Koreň triedy — klikni na priečinok nižšie pre výber'}
+                  )}
+
+                  <div {...getRootProps()} className={`flex-1 border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-200
+                    ${isDragActive ? 'scale-[1.01]' : ''}
+                    ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    style={{
+                      borderColor: isDragActive ? 'var(--accent-link)' : 'var(--border)',
+                      background: isDragActive ? 'rgba(26,58,107,0.08)' : 'var(--surface-2)',
+                      minHeight: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                    <input {...getInputProps()} />
+                    {uploading ? (
+                      <div>
+                        <div className="w-8 h-8 border-4 border-school-blue border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                        <p className="font-semibold text-sm" style={{ color: 'var(--accent-link)' }}>Nahrávam súbor...</p>
+                      </div>
+                    ) : isDragActive ? (
+                      <div>
+                        <CloudUpload size={24} className="mx-auto mb-1" style={{ color: 'var(--accent-link)' }} />
+                        <p className="font-semibold text-sm" style={{ color: 'var(--accent-link)' }}>Pusti súbor sem!</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: 'var(--surface-3)' }}>
+                          <CloudUpload size={20} style={{ color: 'var(--accent-link)' }} />
+                        </div>
+                        <p className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Pretiahni súbor sem</p>
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>alebo klikni pre výber zo zariadenia</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {uploadError && (
+                    <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-sm">
+                      <AlertCircle size={15} /> {uploadError}
+                    </div>
+                  )}
+                  {uploadSuccess && (
+                    <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-2.5 rounded-xl text-sm">
+                      ✅ {uploadSuccess}
                     </div>
                   )}
                 </div>
-              )}
 
-              <div {...getRootProps()} className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-200
-                ${isDragActive ? 'scale-[1.01]' : ''}
-                ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                style={{
-                  borderColor: isDragActive ? 'var(--accent-link)' : 'var(--border)',
-                  background: isDragActive ? 'rgba(26,58,107,0.08)' : 'var(--surface-2)',
-                }}>
-                <input {...getInputProps()} />
-                {uploading ? (
-                  <div>
-                    <div className="w-8 h-8 border-4 border-school-blue border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                    <p className="text-school-blue font-semibold text-sm">Nahrávam súbor...</p>
-                  </div>
-                ) : isDragActive ? (
-                  <div>
-                    <CloudUpload size={24} className="mx-auto mb-1" style={{ color: 'var(--accent-link)' }} />
-                    <p className="font-semibold text-sm" style={{ color: 'var(--accent-link)' }}>Pusti súbor sem!</p>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: 'var(--surface-3)' }}>
-                      <CloudUpload size={20} style={{ color: 'var(--accent-link)' }} />
+                {/* ─ Priečinkový panel (len keď je vybratá trieda) ─ */}
+                {uploadClass && (
+                  <div className="flex flex-col gap-3">
+                    {/* Hlavička priečinka */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
+                        <FolderOpen size={14} className="text-amber-500" />
+                        Priečinky — {uploadClass}
+                      </div>
+                      {adminFolderPath.length < 3 && (
+                        <button
+                          onClick={() => { setShowAdminCreateFolder(true); setAdminFolderError(''); setNewAdminFolderName(''); }}
+                          className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl transition-colors"
+                          style={{ background: 'var(--surface-2)', color: 'var(--accent-link)', border: '1px solid var(--border)' }}>
+                          <FolderPlus size={12} /> Nový
+                        </button>
+                      )}
                     </div>
-                    <p className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Pretiahni súbor sem</p>
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>alebo klikni pre výber zo zariadenia</p>
+
+                    {/* Breadcrumbs */}
+                    <div className="flex items-center gap-1 flex-wrap text-xs">
+                      <button onClick={() => adminNavigateToFolder(null)}
+                        className={`px-2 py-1 rounded-lg transition-colors font-medium ${
+                          !adminCurrentFolder ? 'text-white' : ''
+                        }`}
+                        style={!adminCurrentFolder
+                          ? { background: 'var(--accent-link)' }
+                          : { color: 'var(--text-muted)' }}>
+                        {uploadClass}
+                      </button>
+                      {adminFolderPath.map((f, i) => (
+                        <span key={f.id} className="flex items-center gap-1">
+                          <ChevronRight size={11} style={{ color: 'var(--border)' }} />
+                          <button onClick={() => adminNavigateToFolder(f)}
+                            className="px-2 py-1 rounded-lg transition-colors font-medium"
+                            style={i === adminFolderPath.length - 1
+                              ? { background: 'var(--accent-link)', color: 'white' }
+                              : { color: 'var(--text-muted)' }}>
+                            {f.name}
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Formulár nový priečinok */}
+                    {showAdminCreateFolder && (
+                      <form onSubmit={adminCreateFolder}
+                        className="flex items-center gap-2 p-2.5 rounded-xl"
+                        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                        <Folder size={14} className="text-amber-500 flex-shrink-0" />
+                        <input type="text" className="input-field py-1.5 text-sm flex-1"
+                          placeholder="Názov priečinka..." value={newAdminFolderName}
+                          onChange={e => setNewAdminFolderName(e.target.value)} autoFocus maxLength={60} />
+                        <button type="submit" disabled={adminFolderSaving} className="btn-primary py-1.5 px-3 text-xs">
+                          {adminFolderSaving ? '...' : 'OK'}
+                        </button>
+                        <button type="button" onClick={() => setShowAdminCreateFolder(false)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                          style={{ color: 'var(--text-muted)' }}>
+                          <X size={13} />
+                        </button>
+                      </form>
+                    )}
+                    {adminFolderError && (
+                      <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-xl text-xs">
+                        <AlertCircle size={13} /> {adminFolderError}
+                      </div>
+                    )}
+
+                    {/* Mriežka priečinkov — kompaktná */}
+                    <div className="flex-1 overflow-y-auto" style={{ maxHeight: '260px' }}>
+                      {adminVisibleFolders.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          {adminVisibleFolders.map(folder => {
+                            const childCount = uploadClassFolders.filter(f => f.parent_id === folder.id).length;
+                            const isSelected = uploadFolderId === folder.id;
+                            return (
+                              <AdminFolderCard key={folder.id} folder={folder} childCount={childCount}
+                                isSelected={isSelected} onOpen={() => adminNavigateToFolder(folder)}
+                                onDelete={() => adminDeleteFolder(folder)} />
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-8" style={{ color: 'var(--text-muted)' }}>
+                          <Folder size={28} style={{ opacity: 0.3 }} className="mb-2" />
+                          <p className="text-xs text-center">
+                            {adminCurrentFolder ? 'Bez podpriečinkov' : `Trieda ${uploadClass} nemá priečinky`}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
-
-              {uploadError && (
-                <div className="mt-3 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-sm">
-                  <AlertCircle size={15} /> {uploadError}
-                </div>
-              )}
-              {uploadSuccess && (
-                <div className="mt-3 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-2.5 rounded-xl text-sm">
-                  ✅ {uploadSuccess}
-                </div>
-              )}
             </div>
-
-            {/* ── Správa priečinkov (zobrazí sa po výbere triedy) ── */}
-            {uploadClass && (
-              <div className="card shadow-card hover:shadow-card-hover transition-all duration-200">
-                {/* Hlavička */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center">
-                      <FolderOpen size={16} className="text-amber-500" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-school-navy text-sm">Priečinky triedy {uploadClass}</h3>
-                      <p className="text-xs text-school-muted">Kliknutím na priečinok ho vybereš ako cieľ nahrávanie • Max 3 úrovne</p>
-                    </div>
-                  </div>
-                  {adminFolderPath.length < 3 && (
-                    <button
-                      onClick={() => { setShowAdminCreateFolder(true); setAdminFolderError(''); setNewAdminFolderName(''); }}
-                      className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors">
-                      <FolderPlus size={13} /> Nový priečinok
-                    </button>
-                  )}
-                </div>
-
-                {/* Breadcrumbs */}
-                <div className="flex items-center gap-1 flex-wrap mb-4 text-sm">
-                  <button
-                    onClick={() => adminNavigateToFolder(null)}
-                    className={`px-2 py-1 rounded-lg transition-colors ${
-                      !adminCurrentFolder ? 'bg-school-navy text-white font-semibold' : 'text-school-muted hover:text-school-navy hover:bg-gray-100'
-                    }`}>
-                    Trieda {uploadClass}
-                  </button>
-                  {adminFolderPath.map((f, i) => (
-                    <span key={f.id} className="flex items-center gap-1">
-                      <ChevronRight size={13} className="text-gray-300" />
-                      <button
-                        onClick={() => adminNavigateToFolder(f)}
-                        className={`px-2 py-1 rounded-lg transition-colors ${
-                          i === adminFolderPath.length - 1 ? 'bg-school-navy text-white font-semibold' : 'text-school-muted hover:text-school-navy hover:bg-gray-100'
-                        }`}>
-                        {f.name}
-                      </button>
-                    </span>
-                  ))}
-                </div>
-
-                {/* Formulár na vytvorenie priečinka */}
-                {showAdminCreateFolder && (
-                  <form onSubmit={adminCreateFolder}
-                    className="flex items-center gap-2 mb-4 p-3 bg-amber-50/60 rounded-2xl border border-amber-100">
-                    <Folder size={16} className="text-amber-500 flex-shrink-0" />
-                    <input
-                      type="text"
-                      className="input-field py-1.5 text-sm flex-1"
-                      placeholder="Názov priečinka..."
-                      value={newAdminFolderName}
-                      onChange={e => setNewAdminFolderName(e.target.value)}
-                      autoFocus
-                      maxLength={60}
-                    />
-                    <button type="submit" disabled={adminFolderSaving} className="btn-primary py-1.5 px-3 text-sm">
-                      {adminFolderSaving ? '...' : 'Vytvoriť'}
-                    </button>
-                    <button type="button" onClick={() => setShowAdminCreateFolder(false)}
-                      className="w-7 h-7 rounded-lg hover:bg-gray-200 flex items-center justify-center text-school-muted transition-colors">
-                      <X size={14} />
-                    </button>
-                  </form>
-                )}
-                {adminFolderError && (
-                  <div className="mb-3 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-xl text-sm">
-                    <AlertCircle size={13} /> {adminFolderError}
-                  </div>
-                )}
-
-                {/* Mriežka priečinkov */}
-                {adminVisibleFolders.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {adminVisibleFolders.map(folder => {
-                      const childCount = uploadClassFolders.filter(f => f.parent_id === folder.id).length;
-                      const isSelected = uploadFolderId === folder.id;
-                      return (
-                        <AdminFolderCard
-                          key={folder.id}
-                          folder={folder}
-                          childCount={childCount}
-                          isSelected={isSelected}
-                          onOpen={() => adminNavigateToFolder(folder)}
-                          onDelete={() => adminDeleteFolder(folder)}
-                        />
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-2">
-                      <Folder size={20} className="text-gray-300" />
-                    </div>
-                    <p className="text-school-muted text-sm">
-                      {adminCurrentFolder ? 'Tento priečinok neobsahuje podpriečinky.' : `Trieda ${uploadClass} nemá žiadne priečinky.`}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Zoznam všetkých súborov */}
             <div className="card shadow-card hover:shadow-card-hover transition-all duration-200">
