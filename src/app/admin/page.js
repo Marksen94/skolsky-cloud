@@ -10,6 +10,7 @@ import {
   Search, Filter, Download, CloudUpload, AlertCircle, Folder,
   FolderOpen, X, ChevronRight, FolderPlus,
 } from 'lucide-react';
+import ThemeToggle from '@/app/components/ThemeToggle';
 
 const TABS = ['Žiadosti', 'Žiaci', 'Súbory'];
 
@@ -308,13 +309,13 @@ export default function AdminPage() {
   const adminVisibleFolders = uploadClassFolders.filter(f => (f.parent_id || null) === adminCurrentFolderId);
 
   if (loading) return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/40 flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
       <div className="w-10 h-10 border-4 border-school-blue border-t-transparent rounded-full animate-spin" style={{ borderWidth: '3px' }} />
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
+    <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
       <header className="school-header">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between relative z-10">
           <div className="flex items-center gap-3">
@@ -333,6 +334,7 @@ export default function AdminPage() {
           </div>
           <div className="flex items-center gap-4">
             <span className="text-blue-200 text-sm hidden sm:block font-medium">{adminProfile?.first_name} {adminProfile?.last_name}</span>
+            <ThemeToggle />
             <button onClick={async () => { await supabase.auth.signOut(); router.push('/'); }}
               className="flex items-center gap-1.5 text-blue-200 hover:text-white transition-colors text-sm">
               <LogOut size={15} /> Odhlásiť
@@ -351,11 +353,12 @@ export default function AdminPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex flex-wrap gap-1 mb-6 bg-white/85 rounded-3xl p-1.5 shadow-card border border-gray-100 w-fit animate-fade-in backdrop-blur-sm">
+        <div className="flex flex-wrap gap-1 mb-6 rounded-3xl p-1.5 shadow-card w-fit animate-fade-in" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           {TABS.map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-5 py-2 rounded-2xl text-sm font-semibold transition-all duration-200
-                ${tab === t ? 'bg-gradient-to-r from-school-navy to-school-blue text-white shadow-md' : 'text-school-muted hover:text-school-navy hover:bg-gray-50'}`}>
+                ${tab === t ? 'bg-gradient-to-r from-school-navy to-school-blue text-white shadow-md' : 'hover:opacity-80'}`}
+              style={tab !== t ? { color: 'var(--text-muted)' } : {}}>
               {t}
               {t === 'Žiadosti' && pending.length > 0 && (
                 <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">{pending.length}</span>

@@ -4,13 +4,22 @@ import { createContext, useContext, useEffect, useState } from 'react';
 const ThemeContext = createContext({ theme: 'light', toggleTheme: () => {} });
 
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState('light');
+  // Čítame priamo z DOM-u, ktorý anti-flash skript v layout.js
+  // už nastavil PRED hydratáciou → žiadny blik, správna ikona hneď
+  const [theme, setTheme] = useState(() => {
+    if (typeof window === 'undefined') return 'light'; // SSR fallback
+    return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+  });
 
+  // Záložná synchronizácia pri mountnutí (napr. ak sa localStorage
+  // a DOM nejako rozídu — za normálnych okolností nenastane)
   useEffect(() => {
-    const saved = localStorage.getItem('theme') || 'light';
-    applyTheme(saved);
-    setTheme(saved);
-  }, []);
+    const saved = localStorage.getItem('theme');
+    if (saved && saved !== theme) {
+      applyTheme(saved);
+      setTheme(saved);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function applyTheme(t) {
     if (t === 'dark') {
