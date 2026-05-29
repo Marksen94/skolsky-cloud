@@ -417,8 +417,8 @@ export default function AdminPage() {
                   value={userSearch} onChange={e => setUserSearch(e.target.value)} />
               </div>
               <div className="relative">
-                <Filter size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-school-muted" />
-                <select className="input-field pl-9 py-2 text-sm" value={classFilter} onChange={e => setClassFilter(e.target.value)}>
+                <Filter size={15} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
+                <select className="input-field pl-10 py-2 text-sm" value={classFilter} onChange={e => setClassFilter(e.target.value)}>
                   <option value="">Všetky triedy</option>
                   {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
@@ -427,17 +427,19 @@ export default function AdminPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100">
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
                     {['Meno', 'Email', 'Trieda', 'Stav', ''].map(h => (
-                      <th key={h} className="text-left py-2 px-3 text-school-muted font-semibold text-xs uppercase tracking-wide">{h}</th>
+                      <th key={h} className="text-left py-2 px-3 font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody>
                   {filteredUsers.map(user => (
-                    <tr key={user.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="py-3 px-3 font-semibold text-school-navy">{user.first_name} {user.last_name}</td>
-                      <td className="py-3 px-3 text-school-muted">{user.email}</td>
+                    <tr key={user.id} className="transition-colors" style={{ borderBottom: '1px solid var(--border)' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                      <td className="py-3 px-3 font-semibold" style={{ color: 'var(--text)' }}>{user.first_name} {user.last_name}</td>
+                      <td className="py-3 px-3" style={{ color: 'var(--text-muted)' }}>{user.email}</td>
                       <td className="py-3 px-3"><span className="bg-school-blue text-white text-xs px-2 py-0.5 rounded-full font-medium">{user.class}</span></td>
                       <td className="py-3 px-3"><span className={user.status === 'approved' ? 'badge-approved' : 'badge-rejected'}>{user.status === 'approved' ? 'Schválený' : 'Zamietnutý'}</span></td>
                       <td className="py-3 px-3 text-right flex items-center justify-end gap-2">
@@ -445,7 +447,8 @@ export default function AdminPage() {
                           <button onClick={() => approveUser(user.id)} className="text-emerald-600 hover:text-emerald-800 text-xs font-semibold">Schváliť</button>
                         )}
                         <button onClick={() => deleteUser(user.id, `${user.first_name} ${user.last_name}`)}
-                          className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-400 hover:text-red-600 transition-all">
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all"
+                          style={{ ':hover': { background: 'var(--surface-2)' } }}>
                           <Trash2 size={14} />
                         </button>
                       </td>
@@ -465,16 +468,16 @@ export default function AdminPage() {
             {/* Upload sekcia */}
             <div className="card shadow-card hover:shadow-card-hover transition-all duration-200">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-                  <CloudUpload size={16} className="text-school-blue" />
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
+                  <CloudUpload size={16} style={{ color: 'var(--accent-link)' }} />
                 </div>
-                <h3 className="font-bold text-school-navy">Nahrať súbor do triedy</h3>
+                <h3 className="font-bold" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>Nahrať súbor do triedy</h3>
               </div>
-              <p className="text-xs text-school-muted mb-4 ml-10">PDF, obrázky (JPG, PNG, WebP), PowerPoint, Word, Excel • max 50 MB</p>
+              <p className="text-xs mb-4 ml-10" style={{ color: 'var(--text-muted)' }}>PDF, obrázky (JPG, PNG, WebP), PowerPoint, Word, Excel • max 50 MB</p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <div>
-                  <label className="block text-xs font-semibold text-school-navy mb-1">Trieda *</label>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text)' }}>Trieda *</label>
                   <select className="input-field py-2 text-sm" value={uploadClass}
                     onChange={e => handleUploadClassChange(e.target.value)} disabled={uploading}>
                     <option value="">-- Vyber triedu --</option>
@@ -482,7 +485,7 @@ export default function AdminPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-school-navy mb-1">Popis (voliteľné)</label>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text)' }}>Popis (voliteľné)</label>
                   <input type="text" className="input-field py-2 text-sm" placeholder="napr. Fyzika – tabuľky..."
                     value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} disabled={uploading} />
                 </div>
@@ -491,7 +494,7 @@ export default function AdminPage() {
               {/* Cieľový priečinok — synchronizovaný s navigáciou nižšie */}
               {uploadClass && (
                 <div className="mb-3">
-                  <label className="block text-xs font-semibold text-school-navy mb-1 flex items-center gap-1">
+                  <label className="block text-xs font-semibold mb-1 flex items-center gap-1" style={{ color: 'var(--text)' }}>
                     <Folder size={11} className="text-amber-500" /> Cieľový priečinok pre nahrávanie
                   </label>
                   {adminCurrentFolder ? (
@@ -517,9 +520,13 @@ export default function AdminPage() {
                 </div>
               )}
 
-              <div {...getRootProps()} className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all duration-200
-                ${isDragActive ? 'border-school-blue bg-blue-50 scale-[1.01]' : 'border-gray-200 hover:border-school-blue hover:bg-blue-50/30'}
-                ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <div {...getRootProps()} className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-200
+                ${isDragActive ? 'scale-[1.01]' : ''}
+                ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                style={{
+                  borderColor: isDragActive ? 'var(--accent-link)' : 'var(--border)',
+                  background: isDragActive ? 'rgba(26,58,107,0.08)' : 'var(--surface-2)',
+                }}>
                 <input {...getInputProps()} />
                 {uploading ? (
                   <div>
@@ -528,16 +535,16 @@ export default function AdminPage() {
                   </div>
                 ) : isDragActive ? (
                   <div>
-                    <CloudUpload size={24} className="text-school-blue mx-auto mb-1" />
-                    <p className="text-school-blue font-semibold text-sm">Pusti súbor sem!</p>
+                    <CloudUpload size={24} className="mx-auto mb-1" style={{ color: 'var(--accent-link)' }} />
+                    <p className="font-semibold text-sm" style={{ color: 'var(--accent-link)' }}>Pusti súbor sem!</p>
                   </div>
                 ) : (
                   <div>
-                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center mx-auto mb-2">
-                      <CloudUpload size={18} className="text-school-blue" />
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: 'var(--surface-3)' }}>
+                      <CloudUpload size={20} style={{ color: 'var(--accent-link)' }} />
                     </div>
-                    <p className="text-school-navy font-semibold text-sm">Pretiahni súbor sem</p>
-                    <p className="text-school-muted text-xs mt-0.5">alebo klikni pre výber zo zariadenia</p>
+                    <p className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Pretiahni súbor sem</p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>alebo klikni pre výber zo zariadenia</p>
                   </div>
                 )}
               </div>
@@ -664,13 +671,13 @@ export default function AdminPage() {
             <div className="card shadow-card hover:shadow-card-hover transition-all duration-200">
               <div className="flex flex-col sm:flex-row gap-3 mb-4">
                 <div className="relative flex-1">
-                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-school-muted" />
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
                   <input className="input-field pl-9 py-2 text-sm" placeholder="Hľadaj súbor..."
                     value={fileSearch} onChange={e => setFileSearch(e.target.value)} />
                 </div>
                 <div className="relative">
-                  <Filter size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-school-muted" />
-                  <select className="input-field pl-9 py-2 text-sm" value={classFilter} onChange={e => setClassFilter(e.target.value)}>
+                  <Filter size={15} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
+                  <select className="input-field pl-10 py-2 text-sm" value={classFilter} onChange={e => setClassFilter(e.target.value)}>
                     <option value="">Všetky triedy</option>
                     {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -679,36 +686,39 @@ export default function AdminPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-100">
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       {['Súbor', 'Nahrál', 'Trieda', 'Veľkosť', 'Dátum', ''].map(h => (
-                        <th key={h} className="text-left py-2 px-3 text-school-muted font-semibold text-xs uppercase tracking-wide">{h}</th>
+                        <th key={h} className="text-left py-2 px-3 font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50">
+                  <tbody>
                     {filteredFiles.map(file => (
-                      <tr key={file.id} className="hover:bg-gray-50/50 transition-colors">
+                      <tr key={file.id} className="transition-colors" style={{ borderBottom: '1px solid var(--border)' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-2">
                             <span className="text-xl">{getFileIcon(file.file_type)}</span>
                             <div>
-                              <p className="font-semibold text-school-navy line-clamp-1" style={{ maxWidth: '180px' }}>{file.original_name}</p>
-                              {file.description && <p className="text-xs text-school-muted line-clamp-1">{file.description}</p>}
+                              <p className="font-semibold line-clamp-1" style={{ maxWidth: '180px', color: 'var(--text)' }}>{file.original_name}</p>
+                              {file.description && <p className="text-xs line-clamp-1" style={{ color: 'var(--text-muted)' }}>{file.description}</p>}
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 px-3 text-school-muted">{file.profiles?.first_name} {file.profiles?.last_name}</td>
+                        <td className="py-3 px-3 text-sm" style={{ color: 'var(--text-muted)' }}>{file.profiles?.first_name} {file.profiles?.last_name}</td>
                         <td className="py-3 px-3"><span className="bg-school-blue text-white text-xs px-2 py-0.5 rounded-full font-medium">{file.class}</span></td>
-                        <td className="py-3 px-3 text-school-muted text-xs">{file.file_size ? formatFileSize(file.file_size) : '—'}</td>
-                        <td className="py-3 px-3 text-school-muted text-xs">{new Date(file.created_at).toLocaleDateString('sk-SK')}</td>
+                        <td className="py-3 px-3 text-xs" style={{ color: 'var(--text-muted)' }}>{file.file_size ? formatFileSize(file.file_size) : '—'}</td>
+                        <td className="py-3 px-3 text-xs" style={{ color: 'var(--text-muted)' }}>{new Date(file.created_at).toLocaleDateString('sk-SK')}</td>
                         <td className="py-3 px-3">
                           <div className="flex items-center justify-end gap-2">
                             <a href={file.file_url} target="_blank" rel="noopener noreferrer"
-                              className="w-7 h-7 rounded-lg hover:bg-blue-50 flex items-center justify-center text-school-blue transition-all">
+                              className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+                              style={{ color: 'var(--accent-link)' }}>
                               <Download size={14} />
                             </a>
                             <button onClick={() => deleteFile(file)}
-                              className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-400 hover:text-red-600 transition-all">
+                              className="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all">
                               <Trash2 size={14} />
                             </button>
                           </div>
@@ -717,7 +727,7 @@ export default function AdminPage() {
                     ))}
                   </tbody>
                 </table>
-                {filteredFiles.length === 0 && <p className="text-center text-school-muted py-10 text-sm">Žiadne súbory nezodpovedajú filtru.</p>}
+                {filteredFiles.length === 0 && <p className="text-center py-10 text-sm" style={{ color: 'var(--text-muted)' }}>Žiadne súbory nezodpovedajú filtru.</p>}
               </div>
             </div>
           </div>
