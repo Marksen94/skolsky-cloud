@@ -22,6 +22,7 @@ export default function Dashboard() {
   const [showProfile, setShowProfile] = useState(false);
   const [editPw, setEditPw] = useState('');
   const [editPwConfirm, setEditPwConfirm] = useState('');
+  const [currentPw, setCurrentPw] = useState('');
   const [showEditPw, setShowEditPw] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState('');
@@ -171,14 +172,29 @@ export default function Dashboard() {
     setProfileError('');
     setProfileSuccess('');
 
+    if (!currentPw) { setProfileError('Zadajte aktuálne heslo.'); return; }
     if (!editPw) { setProfileError('Zadajte nové heslo.'); return; }
     if (editPw.length < 6) { setProfileError('Nové heslo musí mať aspoň 6 znakov.'); return; }
     if (editPw !== editPwConfirm) { setProfileError('Heslá sa nezhodujú.'); return; }
 
     setProfileSaving(true);
+
+    // Najprv overime aktuálne heslo re-autentifikáciou
+    const { data: { session } } = await supabase.auth.getSession();
+    const { error: signInErr } = await supabase.auth.signInWithPassword({
+      email: session.user.email,
+      password: currentPw,
+    });
+    if (signInErr) {
+      setProfileError('Aktuálne heslo je nesprávne.');
+      setProfileSaving(false);
+      return;
+    }
+
     const { error: pwErr } = await supabase.auth.updateUser({ password: editPw });
     if (pwErr) { setProfileError('Heslo sa nepodarilo zmeniť: ' + pwErr.message); setProfileSaving(false); return; }
 
+    setCurrentPw('');
     setEditPw('');
     setEditPwConfirm('');
     setProfileSuccess('Heslo bolo úspešne zmenené!');
@@ -188,6 +204,7 @@ export default function Dashboard() {
   function openProfile() {
     setEditPw('');
     setEditPwConfirm('');
+    setCurrentPw('');
     setProfileError('');
     setProfileSuccess('');
     setShowProfile(true);
@@ -317,15 +334,20 @@ export default function Dashboard() {
                 <div className="pt-3 space-y-3">
                   <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Zmena hesla</p>
                   <div>
-                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Nové heslo</label>
+                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Aktuálne heslo</label>
                     <div className="relative">
                       <input type={showEditPw ? 'text' : 'password'} className="input-field pr-10"
-                        placeholder="min. 6 znakov" value={editPw} onChange={e => setEditPw(e.target.value)} required />
+                        placeholder="vaše aktuálne heslo" value={currentPw} onChange={e => setCurrentPw(e.target.value)} required />
                       <button type="button" onClick={() => setShowEditPw(!showEditPw)}
                         className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
                         {showEditPw ? <EyeOff size={15} /> : <Eye size={15} />}
                       </button>
                     </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Nové heslo</label>
+                    <input type={showEditPw ? 'text' : 'password'} className="input-field"
+                      placeholder="min. 6 znakov" value={editPw} onChange={e => setEditPw(e.target.value)} required />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Zopakujte nové heslo</label>
