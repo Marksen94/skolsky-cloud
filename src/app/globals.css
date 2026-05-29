@@ -187,13 +187,26 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.8);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
   transition: all 0.2s ease;
 }
 
 .theme-toggle:hover {
+  background: var(--surface-3);
+  color: var(--text);
+  transform: scale(1.05);
+}
+
+/* V tmavom headeri (dashboard, admin) zostane biela verzia */
+.school-header .theme-toggle {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.school-header .theme-toggle:hover {
   background: rgba(255, 255, 255, 0.2);
   color: white;
   transform: scale(1.05);
