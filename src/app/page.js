@@ -221,7 +221,7 @@ export default function LoginPage() {
                     <label className="block text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--text)' }}>
                       Heslo
                     </label>
-                    <Link href="/forgot-password" className="text-xs font-semibold hover:opacity-70 transition-opacity" style={{ color: '#1A3A6B' }}>
+                    <Link href="/forgot-password" className="text-xs font-semibold hover:opacity-70 transition-opacity" style={{ color: 'var(--accent-link)' }}>
                       Zabudli ste heslo?
                     </Link>
                   </div>
@@ -262,7 +262,7 @@ export default function LoginPage() {
               <div className="text-center">
                 <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>Ešte nemáš účet?</p>
                 <Link href="/register" className="block w-full py-3 rounded-xl font-semibold text-sm text-center transition-all duration-200"
-                  style={{ background: 'var(--surface-2)', border: '1.5px solid var(--border)', color: '#1A3A6B' }}>
+                  style={{ background: 'var(--surface-2)', border: '1.5px solid var(--border)', color: 'var(--accent-link)' }}>
                   Zaregistruj sa
                 </Link>
               </div>
