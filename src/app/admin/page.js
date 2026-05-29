@@ -21,6 +21,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState([]);
   const [approved, setApproved] = useState([]);
+  const [deletionRequests, setDeletionRequests] = useState([]);
   const [files, setFiles] = useState([]);
   const [userSearch, setUserSearch] = useState('');
   const [fileSearch, setFileSearch] = useState('');
@@ -58,6 +59,8 @@ export default function AdminPage() {
   async function loadPending() {
     const { data } = await supabase.from('profiles').select('*').eq('status', 'pending').order('created_at', { ascending: false });
     setPending(data || []);
+    const { data: dr } = await supabase.from('profiles').select('*').eq('deletion_requested', true).order('created_at', { ascending: false });
+    setDeletionRequests(dr || []);
   }
   async function loadApproved() {
     const { data } = await supabase.from('profiles').select('*').in('status', ['approved', 'rejected']).eq('is_admin', false).order('created_at', { ascending: false });
@@ -66,6 +69,27 @@ export default function AdminPage() {
   async function loadFiles() {
     const { data } = await supabase.from('files').select(`*, profiles(first_name, last_name)`).order('created_at', { ascending: false });
     setFiles(data || []);
+  }
+
+  async function rejectDeletion(id) {
+    await supabase.from('profiles').update({ deletion_requested: false }).eq('id', id);
+    setDeletionRequests(prev => prev.filter(u => u.id !== id));
+  }
+
+  async function confirmDeletion(user) {
+    if (!confirm(`Natrvalo vymazať účet ${user.first_name} ${user.last_name}?`)) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/admin/delete-user', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      if (res.ok) {
+        setDeletionRequests(prev => prev.filter(u => u.id !== user.id));
+        await loadApproved();
+      }
+    } catch (err) { alert('Chyba: ' + err.message); }
   }
 
   async function approveUser(id) {
@@ -346,7 +370,7 @@ export default function AdminPage() {
       <main className="max-w-6xl mx-auto px-4 py-8">
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8 animate-slide-up">
-          <StatCard color="amber" icon={<Clock size={18} />} label="Čakajúce žiadosti" value={pending.length} hint="Na schválenie" />
+          <StatCard color="amber" icon={<Clock size={18} />} label="Čakajúce žiadosti" value={pending.length + deletionRequests.length} hint="Na schválenie" />
           <StatCard color="blue" icon={<Users size={18} />} label="Schválení žiaci" value={approved.filter(u => u.status === 'approved').length} hint="Aktívni používatelia" />
           <StatCard color="emerald" icon={<FileText size={18} />} label="Nahratých súborov" value={files.length} hint="Všetky triedy" />
           <StatCard color="violet" icon={<Shield size={18} />} label="Aktívne triedy" value={uniqueClasses} hint="Rozdelenie používateľov" />
@@ -360,7 +384,7 @@ export default function AdminPage() {
                 ${tab === t ? 'bg-gradient-to-r from-school-navy to-school-blue text-white shadow-md' : 'hover:opacity-80'}`}
               style={tab !== t ? { color: 'var(--text-muted)' } : {}}>
               {t}
-              {t === 'Žiadosti' && pending.length > 0 && (
+              {t === 'Žiadosti' && (pending.length + deletionRequests.length) > 0 && (
                 <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">{pending.length}</span>
               )}
             </button>
@@ -370,38 +394,82 @@ export default function AdminPage() {
         {/* ── Žiadosti ── */}
         {tab === 'Žiadosti' && (
           <div className="card shadow-card animate-fade-in">
-            <h3 className="font-bold text-school-navy mb-5 flex items-center gap-2" style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem' }}>
-              <Clock size={18} className="text-amber-500" /> Čakajúce žiadosti o registráciu
+            <h3 className="font-bold mb-5 flex items-center gap-2" style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', color: 'var(--text)' }}>
+              <Clock size={18} className="text-amber-500" /> Prichodzajuce žiadosti
             </h3>
-            {pending.length === 0 ? (
+            {pending.length === 0 && deletionRequests.length === 0 ? (
               <div className="text-center py-14">
                 <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
                   <CheckCircle size={24} className="text-emerald-400" />
                 </div>
-                <p className="text-school-muted text-sm">Žiadne čakajúce žiadosti. Všetko vybavené!</p>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Žiadne čakajúce žiadosti. Všetko vybavené!</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {pending.map(user => (
-                  <div key={user.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100 rounded-3xl shadow-sm hover:shadow-md transition-all duration-200">
-                    <div>
-                      <p className="font-bold text-school-navy flex items-center gap-2">
-                        {user.first_name} {user.last_name}
-                        <span className="bg-school-blue text-white text-xs px-2 py-0.5 rounded-full font-medium">{user.class}</span>
-                      </p>
-                      <p className="text-school-muted text-sm">{user.email}</p>
-                      <p className="text-xs text-school-muted/60 mt-0.5">{new Date(user.created_at).toLocaleString('sk-SK')}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => approveUser(user.id)} className="btn-success flex items-center gap-1.5">
-                        <CheckCircle size={14} /> Schváliť
-                      </button>
-                      <button onClick={() => rejectUser(user.id, `${user.first_name} ${user.last_name}`)} className="btn-danger flex items-center gap-1.5">
-                        <XCircle size={14} /> Zamietnuť
-                      </button>
+              <div className="space-y-5">
+                {/* Registračné žiadosti */}
+                {pending.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Nové registrácie</p>
+                    <div className="space-y-3">
+                      {pending.map(user => (
+                        <div key={user.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-3xl shadow-sm hover:shadow-md transition-all duration-200"
+                          style={{ background: 'linear-gradient(135deg, rgba(251,191,36,0.12), rgba(249,115,22,0.08))', border: '1px solid rgba(251,191,36,0.25)' }}>
+                          <div>
+                            <p className="font-bold flex items-center gap-2" style={{ color: 'var(--text)' }}>
+                              {user.first_name} {user.last_name}
+                              <span className="bg-school-blue text-white text-xs px-2 py-0.5 rounded-full font-medium">{user.class}</span>
+                            </p>
+                            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{user.email}</p>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>{new Date(user.created_at).toLocaleString('sk-SK')}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => approveUser(user.id)} className="btn-success flex items-center gap-1.5">
+                              <CheckCircle size={14} /> Schváliť
+                            </button>
+                            <button onClick={() => rejectUser(user.id, `${user.first_name} ${user.last_name}`)} className="btn-danger flex items-center gap-1.5">
+                              <XCircle size={14} /> Zamietnuť
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
+                )}
+
+                {/* Žiadosti o zrušenie účtu */}
+                {deletionRequests.length > 0 && (
+                  <div>
+                    {pending.length > 0 && <div style={{ borderTop: '1px solid var(--border)', margin: '8px 0' }} />}
+                    <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Zrušenie účtu</p>
+                    <div className="space-y-3">
+                      {deletionRequests.map(user => (
+                        <div key={user.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-3xl shadow-sm hover:shadow-md transition-all duration-200"
+                          style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(109,40,217,0.06))', border: '1px solid rgba(139,92,246,0.28)' }}>
+                          <div>
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <p className="font-bold" style={{ color: 'var(--text)' }}>{user.first_name} {user.last_name}</p>
+                              <span className="bg-school-blue text-white text-xs px-2 py-0.5 rounded-full font-medium">{user.class}</span>
+                              <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(139,92,246,0.15)', color: '#a855f7', border: '1px solid rgba(139,92,246,0.3)' }}>
+                                žiad. o zrušenie
+                              </span>
+                            </div>
+                            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{user.email}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => confirmDeletion(user)} className="btn-danger flex items-center gap-1.5">
+                              <Trash2 size={14} /> Vymazať
+                            </button>
+                            <button onClick={() => rejectDeletion(user.id)}
+                              className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-semibold text-sm transition-all"
+                              style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                              <XCircle size={14} /> Zamietnuť
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

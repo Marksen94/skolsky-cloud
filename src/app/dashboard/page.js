@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase, MAX_FILE_SIZE, formatFileSize, getFileIcon } from '@/lib/supabase';
 import { useDropzone } from 'react-dropzone';
-import { Upload, LogOut, Trash2, Download, Clock, User, CloudUpload, BookOpen, Search, AlertCircle, FolderOpen, X, Eye, EyeOff, CheckCircle, Settings, Lock, Folder, ChevronRight, FolderPlus } from 'lucide-react';
+import { Upload, LogOut, Trash2, Download, Clock, User, CloudUpload, BookOpen, Search, AlertCircle, FolderOpen, X, Eye, EyeOff, CheckCircle, Settings, Lock, Folder, ChevronRight, FolderPlus, KeyRound, UserX, ChevronDown } from 'lucide-react';
 import ThemeToggle from '@/app/components/ThemeToggle';
 
 export default function Dashboard() {
@@ -20,6 +20,9 @@ export default function Dashboard() {
   const [description, setDescription] = useState('');
 
   const [showProfile, setShowProfile] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showDeleteRequest, setShowDeleteRequest] = useState(false);
+  const [deleteRequestSent, setDeleteRequestSent] = useState(false);
   const [editPw, setEditPw] = useState('');
   const [editPwConfirm, setEditPwConfirm] = useState('');
   const [currentPw, setCurrentPw] = useState('');
@@ -201,7 +204,13 @@ export default function Dashboard() {
     setProfileSaving(false);
   }
 
+  async function requestDeletion() {
+    await supabase.from('profiles').update({ deletion_requested: true }).eq('id', profile.id);
+    setDeleteRequestSent(true);
+  }
+
   function openProfile() {
+    setShowUserMenu(false);
     setEditPw('');
     setEditPwConfirm('');
     setCurrentPw('');
@@ -293,6 +302,86 @@ export default function Dashboard() {
 
   return (
     <div style={{ background: 'var(--bg)' }}>
+
+      {/* Dropdown menu */}
+      {showUserMenu && (
+        <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+      )}
+      {showUserMenu && (
+        <div className="fixed z-50 rounded-2xl shadow-2xl py-1.5 min-w-[200px] animate-fade-in"
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            top: '64px',
+            right: '120px',
+          }}>
+          <button onClick={() => { setShowUserMenu(false); openProfile(); }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left"
+            style={{ color: 'var(--text)' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+            <KeyRound size={15} style={{ color: 'var(--accent-link)' }} />
+            Zmena hesla
+          </button>
+          <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+          <button onClick={() => { setShowUserMenu(false); setShowDeleteRequest(true); }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left"
+            style={{ color: '#ef4444' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(200,32,10,0.08)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+            <UserX size={15} />
+            Zrušenie účtu
+          </button>
+        </div>
+      )}
+
+      {/* Modal — Zrušenie účtu */}
+      {showDeleteRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" style={{ background: 'var(--overlay)' }}>
+          <div className="rounded-3xl shadow-2xl w-full max-w-sm p-6 relative animate-slide-up" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <button onClick={() => { setShowDeleteRequest(false); setDeleteRequestSent(false); }}
+              className="absolute top-4 right-4 w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
+              <X size={16} style={{ color: 'var(--text-muted)' }} />
+            </button>
+            {deleteRequestSent ? (
+              <div className="text-center py-4">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(5,150,105,0.12)' }}>
+                  <CheckCircle size={28} style={{ color: '#10b981' }} />
+                </div>
+                <h2 className="text-lg font-bold mb-2" style={{ color: 'var(--text)' }}>Žiadosť odoslaná</h2>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Správca školy dostane tvoju žiadosť o zrušenie účtu a rozhodne o nej čo najskôr.</p>
+                <button onClick={() => { setShowDeleteRequest(false); setDeleteRequestSent(false); }}
+                  className="btn-primary w-full mt-5">Zatvoriť</button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(200,32,10,0.1)' }}>
+                    <UserX size={22} style={{ color: '#ef4444' }} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Zrušenie účtu</h2>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Táto akcia vyžaduje schválenie správcu</p>
+                  </div>
+                </div>
+                <div className="rounded-xl p-4 mb-5 text-sm" style={{ background: 'rgba(200,32,10,0.07)', border: '1px solid rgba(200,32,10,0.2)', color: 'var(--text)' }}>
+                  Po schválení správcom bude tvoj účet a všetky nahrané súbory <strong>natrvalo vymazané</strong>. Táto akcia je nevratná.
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setShowDeleteRequest(false)}
+                    className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-colors"
+                    style={{ background: 'var(--surface-2)', color: 'var(--text)' }}>Zrušiť</button>
+                  <button onClick={requestDeletion}
+                    className="flex-1 py-2.5 rounded-xl font-semibold text-sm text-white transition-colors"
+                    style={{ background: 'linear-gradient(135deg, #dc2626, #ef4444)' }}>
+                    Požiadať o zrušenie
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Profil Modal */}
       {showProfile && (
@@ -394,13 +483,13 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={openProfile}
+            <button onClick={() => setShowUserMenu(v => !v)}
               className="hidden sm:flex items-center gap-2 rounded-xl px-3 py-1.5 transition-colors" style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)' }}>
               <User size={13} className="text-blue-200" />
               <span className="text-white text-sm font-medium">{profile?.first_name} {profile?.last_name}</span>
-              <Settings size={12} className="text-blue-300" />
+              <ChevronDown size={12} className="text-blue-300" />
             </button>
-            <button onClick={openProfile}
+            <button onClick={() => setShowUserMenu(v => !v)}
               className="sm:hidden w-8 h-8 rounded-xl flex items-center justify-center transition-colors" style={{ background: 'rgba(255,255,255,0.1)' }}>
               <User size={15} className="text-blue-200" />
             </button>
