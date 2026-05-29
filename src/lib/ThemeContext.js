@@ -4,22 +4,31 @@ import { createContext, useContext, useEffect, useState } from 'react';
 const ThemeContext = createContext({ theme: 'light', toggleTheme: () => {} });
 
 export function ThemeProvider({ children }) {
-  // Čítame priamo z DOM-u, ktorý anti-flash skript v layout.js
-  // už nastavil PRED hydratáciou → žiadny blik, správna ikona hneď
-  const [theme, setTheme] = useState(() => {
-    if (typeof window === 'undefined') return 'light'; // SSR fallback
-    return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-  });
+  // Vždy začíname s 'light' — SSR bezpečné.
+  // Anti-flash skript v layout.js sa postará o vizuálny stav ešte pred hydratáciou.
+  // useEffect potom zosynchronizuje React state s tým čo je reálne v DOM/localStorage.
+  const [theme, setTheme] = useState('light');
 
-  // Záložná synchronizácia pri mountnutí (napr. ak sa localStorage
-  // a DOM nejako rozídu — za normálnych okolností nenastane)
   useEffect(() => {
-    const saved = localStorage.getItem('theme');
-    if (saved && saved !== theme) {
-      applyTheme(saved);
-      setTheme(saved);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // Čítame z DOM — anti-flash skript ho už nastavil správne
+    // (vrátane systémového prefers-color-scheme pri prvej návšteve)
+    const active = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+    setTheme(active);
+
+    // Sledujeme systémovú zmenu témy (napr. OS prepne svetlý/tmavý)
+    // — iba ak používateľ nemá vlastnú uloženú voľbu
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onSystemChange = (e) => {
+      const saved = localStorage.getItem('theme');
+      if (!saved) {
+        const next = e.matches ? 'dark' : 'light';
+        applyTheme(next);
+        setTheme(next);
+      }
+    };
+    mq.addEventListener('change', onSystemChange);
+    return () => mq.removeEventListener('change', onSystemChange);
+  }, []);
 
   function applyTheme(t) {
     if (t === 'dark') {
