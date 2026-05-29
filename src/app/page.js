@@ -105,7 +105,7 @@ export default function LoginPage() {
           <div className="mb-12 flex-shrink-0">
             <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-6">
               <Sparkles size={12} className="text-yellow-400" />
-              <span className="text-white/70 text-xs font-medium tracking-wide">Zdieľaj vedomosti. Rás spoločne.</span>
+              <span className="text-white/70 text-xs font-medium tracking-wide">Vzdelávanie v digitálnej dobe.</span>
             </div>
             <h2 className="text-5xl font-bold text-white leading-[1.1] mb-4" style={{ fontFamily: 'Sora, sans-serif' }}>
               Tvoje materiály,<br />
@@ -116,21 +116,21 @@ export default function LoginPage() {
               </span>
             </h2>
             <p className="text-blue-200/50 text-sm leading-relaxed max-w-[340px]">
-              Centrálny priestor pre poznámky, fotené písomky a prezentácie. Prístupný len pre žiakov Spojenej školy Kollárova 17.
+              Cloudové úloziško poznámok, fotených písomiek a prezentácií — vytvorené pre žiakov Spojenej školy Kollárova 17, Sečovce.
             </p>
           </div>
 
           {/* Feature karty */}
           <div className="space-y-3 flex-1">
             <FeatureCard icon={<BookOpen size={16} />} accent="#ef4444"
-              title="Zdieľaj materiály"
-              desc="Poznámky, fotené písomky, prezentácie – všetko na jednom mieste." />
+              title="Zdieľaj a čerpaj"
+              desc="Nahrávaj vlastné súbory a využívaj obsah spolužiakov. Všetky predmety prehľadne na dosah ruky." />
             <FeatureCard icon={<Shield size={16} />} accent="#3b82f6"
-              title="Zabezpečený prístup"
-              desc="Každá trieda má vlastný priestor. Nikto iný nevidí vaše materiály." />
+              title="Bezpečný priestor triedy"
+              desc="Každá trieda má uzavretý digitálny priestor. Vaše dokumenty zostanú iba medzi vami." />
             <FeatureCard icon={<Users size={16} />} accent="#a855f7"
-              title="Len pre žiakov školy"
-              desc="Registráciu schvaľuje správca. Žiadny cudzí nemá prístup." />
+              title="Len overení členovia"
+              desc="Každého nového žiaka schvaľuje správca školy. Cudzí do systému nevstúpia." />
           </div>
 
           {/* Pätička */}
