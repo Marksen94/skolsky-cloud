@@ -21,6 +21,13 @@ export default function Dashboard() {
 
   const userMenuRef = useRef(null);
   const userMenuBtnRef = useRef(null);
+  // Pomocná funkcia — vráti pozíciu aktívneho tlačidla (desktop alebo mobile)
+  function getMenuPos() {
+    const btn = userMenuBtnRef.current;
+    if (!btn) return { top: 72, right: 16 };
+    const r = btn.getBoundingClientRect();
+    return { top: r.bottom + 8, right: window.innerWidth - r.right };
+  }
   const [showProfile, setShowProfile] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showDeleteRequest, setShowDeleteRequest] = useState(false);
@@ -303,8 +310,7 @@ export default function Dashboard() {
         <div ref={userMenuRef} className="fixed z-50 rounded-2xl shadow-2xl py-1.5 min-w-[200px] animate-fade-in"
           style={{
             background: 'var(--surface)', border: '1px solid var(--border)',
-            top: (userMenuBtnRef.current?.getBoundingClientRect().bottom ?? 64) + 8,
-            right: window.innerWidth - (userMenuBtnRef.current?.getBoundingClientRect().right ?? (window.innerWidth - 16)),
+            ...getMenuPos(),
           }}>
           <button onClick={() => { setShowUserMenu(false); openProfile(); }}
             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left"
@@ -470,11 +476,14 @@ export default function Dashboard() {
               <span className="text-white text-sm font-medium">{profile?.first_name} {profile?.last_name}</span>
               <ChevronDown size={12} className="text-blue-300" />
             </button>
-            <button ref={userMenuBtnRef} onClick={() => setShowUserMenu(v => !v)}
-              className="sm:hidden w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.1)' }}>
-              <User size={15} className="text-blue-200" />
-            </button>
+            {/* Mobile — ref na wrapper aby getBoundingClientRect fungoval */}
+            <span ref={r => { if (r && window.innerWidth < 640) userMenuBtnRef.current = r; }}>
+              <button onClick={() => setShowUserMenu(v => !v)}
+                className="sm:hidden w-8 h-8 rounded-xl flex items-center justify-center"
+                style={{ background: 'rgba(255,255,255,0.1)' }}>
+                <User size={15} className="text-blue-200" />
+              </button>
+            </span>
             <ThemeToggle />
             <button onClick={async () => { await supabase.auth.signOut(); router.push('/'); }}
               className="flex items-center gap-1.5 text-blue-200 hover:text-white transition-colors text-sm">
