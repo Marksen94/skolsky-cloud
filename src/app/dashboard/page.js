@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase, MAX_FILE_SIZE, formatFileSize, getFileIcon } from '@/lib/supabase';
@@ -19,6 +19,8 @@ export default function Dashboard() {
   const [uploadSuccess, setUploadSuccess] = useState('');
   const [description, setDescription] = useState('');
 
+  const userMenuRef = useRef(null);
+  const userMenuBtnRef = useRef(null);
   const [showProfile, setShowProfile] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showDeleteRequest, setShowDeleteRequest] = useState(false);
@@ -38,6 +40,19 @@ export default function Dashboard() {
   const [newFolderName, setNewFolderName] = useState('');
   const [folderSaving, setFolderSaving] = useState(false);
   const [folderError, setFolderError] = useState('');
+
+  // Zatvori dropdown pri kliknutí mimo
+  useEffect(() => {
+    if (!showUserMenu) return;
+    function handleClick(e) {
+      if (
+        userMenuRef.current && !userMenuRef.current.contains(e.target) &&
+        userMenuBtnRef.current && !userMenuBtnRef.current.contains(e.target)
+      ) setShowUserMenu(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showUserMenu]);
 
   useEffect(() => { loadUser(); }, []);
 
@@ -249,6 +264,8 @@ export default function Dashboard() {
     if (dbErr) { setUploadError('Chyba pri ukladaní: ' + dbErr.message); setUploading(false); return; }
 
     if (inserted) {
+      // Pridať súbor priamo do state — folder_id je už nastavené správne,
+      // takže sa okamžite zobrazí v aktualnom priecdinku bez reloadu
       setFiles(prev => [inserted, ...prev]);
     }
 
@@ -276,7 +293,8 @@ export default function Dashboard() {
     if (file.uploaded_by !== profile.id) { alert('Môžeš vymazať len vlastné súbory.'); return; }
     await supabase.storage.from('class-files').remove([file.file_name]);
     await supabase.from('files').delete().eq('id', file.id);
-    await loadFiles(profile.class);
+    // Optimistický update — neresetuje aktuálny priecinok
+    setFiles(prev => prev.filter(f => f.id !== file.id));
   }
 
   const currentFolderId = currentFolder ? currentFolder.id : null;
@@ -303,17 +321,14 @@ export default function Dashboard() {
   return (
     <div style={{ background: 'var(--bg)' }}>
 
-      {/* Dropdown menu */}
+      {/* Dropdown menu — pozicionávaný relatívne k tlačidlu */}
       {showUserMenu && (
-        <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-      )}
-      {showUserMenu && (
-        <div className="fixed z-50 rounded-2xl shadow-2xl py-1.5 min-w-[200px] animate-fade-in"
+        <div ref={userMenuRef} className="fixed z-50 rounded-2xl shadow-2xl py-1.5 min-w-[200px] animate-fade-in"
           style={{
             background: 'var(--surface)',
             border: '1px solid var(--border)',
-            top: '64px',
-            right: '120px',
+            top: (userMenuBtnRef.current?.getBoundingClientRect().bottom ?? 64) + 8,
+            right: window.innerWidth - (userMenuBtnRef.current?.getBoundingClientRect().right ?? (window.innerWidth - 16)),
           }}>
           <button onClick={() => { setShowUserMenu(false); openProfile(); }}
             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left"
@@ -483,13 +498,13 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => setShowUserMenu(v => !v)}
+            <button ref={userMenuBtnRef} onClick={() => setShowUserMenu(v => !v)}
               className="hidden sm:flex items-center gap-2 rounded-xl px-3 py-1.5 transition-colors" style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)' }}>
               <User size={13} className="text-blue-200" />
               <span className="text-white text-sm font-medium">{profile?.first_name} {profile?.last_name}</span>
               <ChevronDown size={12} className="text-blue-300" />
             </button>
-            <button onClick={() => setShowUserMenu(v => !v)}
+            <button ref={userMenuBtnRef} onClick={() => setShowUserMenu(v => !v)}
               className="sm:hidden w-8 h-8 rounded-xl flex items-center justify-center transition-colors" style={{ background: 'rgba(255,255,255,0.1)' }}>
               <User size={15} className="text-blue-200" />
             </button>
@@ -512,10 +527,10 @@ export default function Dashboard() {
 
         {/* Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up">
-          <StatCard icon={<BookOpen size={20} style={{ color: '#3b82f6' }} />} title="Súbory" value={files.length} subtitle="celkem nahráno" color="blue" />
-          <StatCard icon={<Folder size={20} style={{ color: '#f59e0b' }} />} title="Priečinky" value={folders.filter(f => !f.parent_id).length} subtitle="hlavní priečinkov" color="amber" />
-          <StatCard icon={<CloudUpload size={20} style={{ color: '#10b981' }} />} title="Dátum" value={files.length > 0 ? new Date(files[0].created_at).toLocaleDateString('sk-SK', { day: '2-digit', month: 'short' }) : '--'} subtitle="poslastný upload" color="green" />
-          <StatCard icon={<Clock size={20} style={{ color: '#a855f7' }} />} title="Veľkosť" value={files.length > 0 ? formatFileSize(files.reduce((sum, f) => sum + (f.file_size || 0), 0)) : '0 B'} subtitle="všetky súbory" color="purple" />
+          <StatCard icon={<BookOpen size={20} style={{ color: '#3b82f6' }} />} title="Súbory" value={files.length} subtitle="celkom nahraných" color="blue" />
+          <StatCard icon={<Folder size={20} style={{ color: '#f59e0b' }} />} title="Priečinky" value={folders.filter(f => !f.parent_id).length} subtitle="hlavných priečinkov" color="amber" />
+          <StatCard icon={<CloudUpload size={20} style={{ color: '#10b981' }} />} title="Posledný upload" value={files.length > 0 ? new Date(files[0].created_at).toLocaleDateString('sk-SK', { day: '2-digit', month: 'short' }) : '--'} subtitle="dátum posledného" color="green" />
+          <StatCard icon={<Clock size={20} style={{ color: '#a855f7' }} />} title="Veľkosť" value={files.length > 0 ? formatFileSize(files.reduce((sum, f) => sum + (f.file_size || 0), 0)) : '0 B'} subtitle="všetky súbory spolu" color="purple" />
         </div>
 
         {/* Upload */}
@@ -604,26 +619,20 @@ export default function Dashboard() {
           {/* Breadcrumbs */}
           <div className="flex items-center gap-1 flex-wrap mb-4 text-sm">
             <button onClick={() => navigateToFolder(null)}
-              className={`px-2 py-1 rounded-lg transition-colors ${
-                !currentFolder ? 'font-semibold' : ''
-              }`}
-              style={{
-                background: !currentFolder ? '#0D1F3C' : 'transparent',
-                color: !currentFolder ? 'white' : 'var(--text-muted)'
-              }}>
+              className="px-2 py-1 rounded-lg transition-colors font-medium"
+              style={!currentFolder
+                ? { background: 'var(--accent-link)', color: 'white' }
+                : { color: 'var(--text-muted)', background: 'transparent' }}>
               Trieda {profile?.class}
             </button>
             {folderPath.map((f, i) => (
               <span key={f.id} className="flex items-center gap-1">
                 <ChevronRight size={13} style={{ color: 'var(--border)' }} />
                 <button onClick={() => navigateToFolder(f)}
-                  className={`px-2 py-1 rounded-lg transition-colors ${
-                    i === folderPath.length - 1 ? 'font-semibold' : ''
-                  }`}
-                  style={{
-                    background: i === folderPath.length - 1 ? '#0D1F3C' : 'transparent',
-                    color: i === folderPath.length - 1 ? 'white' : 'var(--text-muted)'
-                  }}>
+                  className="px-2 py-1 rounded-lg transition-colors font-medium"
+                  style={i === folderPath.length - 1
+                    ? { background: 'var(--accent-link)', color: 'white' }
+                    : { color: 'var(--text-muted)', background: 'transparent' }}>
                   {f.name}
                 </button>
               </span>
