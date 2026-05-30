@@ -91,7 +91,7 @@ export default function UpdatePasswordPage() {
             <>
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
-                  <KeyRound size={18} style={{ color: '#1A3A6B' }} />
+                  <KeyRound size={18} style={{ color: 'var(--accent-link)' }} />
                 </div>
                 <div>
                   <h2 className="text-xl font-bold" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>
