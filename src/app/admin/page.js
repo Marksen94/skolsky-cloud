@@ -52,6 +52,20 @@ export default function AdminPage() {
 
   useEffect(() => { checkAdmin(); }, []);
 
+  // Fix 1 — Realtime notifikacie pre admina
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-notifications')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'profiles' }, () => {
+        loadPending();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload) => {
+        if (payload.new.deletion_requested) loadPending();
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, []);
+
   async function checkAdmin() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { router.push('/'); return; }
@@ -272,7 +286,7 @@ export default function AdminPage() {
       'application/vnd.ms-excel': ['.xls'],
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
     },
-    maxSize: MAX_FILE_SIZE, multiple: false, disabled: uploading,
+    maxSize: MAX_FILE_SIZE, multiple: false, disabled: uploading || !uploadClass,
   });
 
   const filteredUsers = approved.filter(u => {
@@ -558,8 +572,8 @@ export default function AdminPage() {
                       )}
                     </div>
                   )}
-                  <div {...getRootProps()} className={`flex-1 border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-200 ${isDragActive ? 'scale-[1.01]' : ''} ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    style={{ borderColor: isDragActive ? 'var(--accent-link)' : 'var(--border)', background: isDragActive ? 'rgba(26,58,107,0.08)' : 'var(--surface-2)', minHeight: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div {...getRootProps()} className={`flex-1 border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-200 ${!uploadClass ? 'cursor-not-allowed opacity-50' : isDragActive ? 'scale-[1.01] cursor-pointer' : 'cursor-pointer'} ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    style={{ borderColor: !uploadClass ? 'var(--border)' : isDragActive ? 'var(--accent-link)' : 'var(--border)', background: !uploadClass ? 'var(--surface-3)' : isDragActive ? 'rgba(26,58,107,0.08)' : 'var(--surface-2)', minHeight: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input {...getInputProps()} />
                     {uploading ? (
                       <div><div className="w-8 h-8 rounded-full animate-spin mx-auto mb-2" style={{ borderWidth: '3px', borderStyle: 'solid', borderColor: 'var(--accent-link)', borderTopColor: 'transparent' }} /><p className="font-semibold text-sm" style={{ color: 'var(--accent-link)' }}>Nahrávam...</p></div>
