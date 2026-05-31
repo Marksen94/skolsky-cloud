@@ -184,6 +184,11 @@ select.input-field {
   box-shadow: 0 8px 24px rgba(13, 31, 60, 0.35);
 }
 
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 8px rgba(13, 31, 60, 0.25);
+}
+
 .btn-primary:disabled {
   opacity: 0.65;
   cursor: not-allowed;
@@ -219,6 +224,11 @@ select.input-field {
   box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35);
 }
 
+.btn-success:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: none;
+}
+
 .btn-danger {
   padding: 8px 16px;
   border-radius: 10px;
@@ -234,6 +244,11 @@ select.input-field {
 .btn-danger:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
+}
+
+.btn-danger:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: none;
 }
 
 .badge-approved {
@@ -301,31 +316,20 @@ select.input-field {
 }
 
 @keyframes slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-.animate-slide-up {
-  animation: slide-up 0.5s ease-out forwards;
+@keyframes slowPulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.08); }
 }
 
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out;
-}
+.animate-slide-up { animation: slide-up 0.5s ease-out forwards; }
+.animate-fade-in { animation: fade-in 0.3s ease-out; }
+.animate-slow-pulse { animation: slowPulse 4s ease-in-out infinite; }
