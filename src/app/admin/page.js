@@ -593,17 +593,10 @@ export default function AdminPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-1 flex-wrap text-xs">
-                      {adminCurrentFolder ? (
-                        <button onClick={() => adminNavigateToFolder(null)}
-                          className="px-2 py-1 rounded-lg font-medium transition-colors"
-                          style={{ color: 'var(--text-muted)' }}>
-                          {uploadClass}
-                        </button>
-                      ) : (
-                        <span className="px-2 py-1 text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
-                          {uploadClass}
-                        </span>
-                      )}
+                      <button onClick={() => adminNavigateToFolder(null)} className="px-2 py-1 rounded-lg font-medium"
+                        style={!adminCurrentFolder ? { background: 'var(--accent-link)', color: 'white' } : { color: 'var(--text-muted)' }}>
+                        {uploadClass}
+                      </button>
                       {adminFolderPath.map((f, i) => (
                         <span key={f.id} className="flex items-center gap-1">
                           <ChevronRight size={11} style={{ color: 'var(--border)' }} />
