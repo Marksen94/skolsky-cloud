@@ -519,7 +519,7 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-white font-bold text-sm" style={{ fontFamily: 'Sora, sans-serif' }}>
-                Spojena skola Kollarova 17, Secovce
+                Spojená škola Kollárova 17, Sečovce
               </p>
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -724,7 +724,7 @@ export default function Dashboard() {
         </div>
 
         <p className="text-center text-xs" style={{ color: 'var(--text-dim)' }}>
-          2026 RU-MONT s. r. o., Spojena skola Secovce
+          © 2026 RU-MONT s. r. o., Spojená škola Sečovce
         </p>
       </main>
     </div>

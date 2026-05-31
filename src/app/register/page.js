@@ -63,7 +63,7 @@ export default function RegisterPage() {
             <p style={{ color: 'var(--text-muted)' }}>2. Oznám meno a triedu <strong style={{ color: 'var(--text)' }}>{form.class}</strong></p>
             <p style={{ color: 'var(--text-muted)' }}>3. Po schválení sa môžeš prihlásiť</p>
           </div>
-          <div className="rounded-xl p-3 text-xs mb-6" style={{ background: 'rgba(26,58,107,0.15)', border: '1px solid rgba(26,58,107,0.25)', color: '#1A3A6B' }}>
+          <div className="rounded-xl p-3 text-xs mb-6" style={{ background: 'rgba(26,58,107,0.1)', border: '1px solid rgba(26,58,107,0.25)', color: 'var(--accent-link)' }}>
             <p>📧 <strong>{process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@skola.sk'}</strong></p>
             <p>📱 Instagram: <strong>@https_riso</strong></p>
           </div>
