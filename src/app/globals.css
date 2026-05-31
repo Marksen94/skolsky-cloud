@@ -48,6 +48,10 @@ html {
   scroll-behavior: smooth;
 }
 
+html, body {
+  overflow-x: hidden;
+}
+
 body {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   background: var(--bg);
@@ -149,11 +153,17 @@ select.input-field {
   background: var(--surface);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-card);
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .card:hover {
   box-shadow: var(--shadow-card-hover);
+  border-color: rgba(26, 58, 107, 0.22);
+}
+
+.dark .card:hover {
+  border-color: rgba(110, 170, 255, 0.2);
+  box-shadow: var(--shadow-card-hover), 0 0 0 1px rgba(110, 170, 255, 0.08);
 }
 
 .btn-primary {
