@@ -58,6 +58,10 @@ export default function Dashboard() {
   // Fix 10 - mobile menu
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileLimit, setFileLimit] = useState(20);
+  const [hasMoreFiles, setHasMoreFiles] = useState(false);
+
   const globalSearch = search.trim().length > 0;
   const filteredFiles = globalSearch
     ? files.filter(f =>
@@ -93,13 +97,24 @@ export default function Dashboard() {
   }
 
   async function loadFiles(className) {
-    const { data: filesData } = await supabase.from('files')
-      .select(`*, profiles(first_name, last_name)`)
-      .eq('class', className).order('created_at', { ascending: false });
+    const { data: filesData, count } = await supabase.from('files')
+      .select(`*, profiles(first_name, last_name)`, { count: 'exact' })
+      .eq('class', className).order('created_at', { ascending: false }).range(0, fileLimit - 1);
     setFiles(filesData || []);
+    setHasMoreFiles((count || 0) > fileLimit);
     const { data: foldersData } = await supabase.from('folders')
       .select('*').eq('class', className).order('name', { ascending: true });
     setFolders(foldersData || []);
+  }
+
+  async function loadMoreFiles() {
+    const newLimit = fileLimit + 20;
+    setFileLimit(newLimit);
+    const { data: filesData, count } = await supabase.from('files')
+      .select(`*, profiles(first_name, last_name)`, { count: 'exact' })
+      .eq('class', profile.class).order('created_at', { ascending: false }).range(0, newLimit - 1);
+    setFiles(filesData || []);
+    setHasMoreFiles((count || 0) > newLimit);
   }
 
   function navigateToFolder(folder) {
@@ -196,7 +211,7 @@ export default function Dashboard() {
     setProfileError(''); setProfileSuccess(''); setShowProfile(true);
   }
 
-  const onDrop = useCallback(async (accepted, rejected) => {
+  const onDrop = useCallback((accepted, rejected) => {
     setUploadError(''); setUploadSuccess('');
     if (rejected.length > 0) {
       const err = rejected[0].errors[0];
@@ -206,12 +221,18 @@ export default function Dashboard() {
       return;
     }
     if (accepted.length === 0) return;
-    const file = accepted[0];
+    setSelectedFile(accepted[0]);
+  }, []);
+
+  async function handleUpload() {
+    if (!selectedFile || uploading) return;
+    setUploadError(''); setUploadSuccess('');
     setUploading(true);
+    const file = selectedFile;
     const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
     const path = `${profile.class}/${safeName}`;
     const { error: uploadErr } = await supabase.storage.from('class-files').upload(path, file, { cacheControl: '3600', upsert: false });
-    if (uploadErr) { setUploadError('Chyba pri nahravani: ' + uploadErr.message); setUploading(false); return; }
+    if (uploadErr) { setUploadError('Chyba pri nahravani: ' + uploadErr.message); setUploading(false); setSelectedFile(null); return; }
     const { data: { publicUrl } } = supabase.storage.from('class-files').getPublicUrl(path);
     const { data: inserted, error: dbErr } = await supabase.from('files').insert({
       uploaded_by: profile.id, class: profile.class, file_name: path,
@@ -219,12 +240,13 @@ export default function Dashboard() {
       file_size: file.size, description: description.trim() || null,
       folder_id: currentFolder ? currentFolder.id : null,
     }).select(`*, profiles(first_name, last_name)`).single();
-    if (dbErr) { setUploadError('Chyba pri ukladani: ' + dbErr.message); setUploading(false); return; }
+    if (dbErr) { setUploadError('Chyba pri ukladani: ' + dbErr.message); setUploading(false); setSelectedFile(null); return; }
     if (inserted) setFiles(prev => [inserted, ...prev]);
     setUploadSuccess(`"${file.name}" bol uspesne nahraty!`);
     setDescription('');
+    setSelectedFile(null);
     setUploading(false);
-  }, [profile, description, currentFolder]);
+  }
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -587,7 +609,30 @@ export default function Dashboard() {
               <div className="flex flex-col items-center">
                 <div className="w-12 h-12 rounded-full animate-spin mx-auto mb-4"
                   style={{ borderWidth: '4px', borderStyle: 'solid', borderColor: 'var(--accent-link)', borderTopColor: 'transparent' }} />
-                <p className="font-semibold text-base" style={{ color: 'var(--accent-link)' }}>Nahravom subor...</p>
+                <p className="font-semibold text-sm" style={{ color: 'var(--accent-link)' }}>
+                  {selectedFile ? `Nahravam "${selectedFile.name}"...` : 'Nahravom subor...'}
+                </p>
+                {selectedFile && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{formatFileSize(selectedFile.size)}</p>}
+              </div>
+            ) : selectedFile ? (
+              <div className="flex flex-col items-center" onClick={e => e.stopPropagation()}>
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl" style={{ background: 'var(--surface-2)' }}>
+                  {getFileIcon(selectedFile.type)}
+                </div>
+                <p className="font-semibold text-sm text-center line-clamp-2" style={{ color: 'var(--text)' }}>{selectedFile.name}</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{formatFileSize(selectedFile.size)}</p>
+                <div className="flex items-center gap-2 mt-4">
+                  <button onClick={e => { e.stopPropagation(); setSelectedFile(null); setUploadError(''); }}
+                    className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg"
+                    style={{ background: 'rgba(200,32,10,0.1)', color: '#ef4444', border: '1px solid rgba(200,32,10,0.2)' }}>
+                    <X size={12} /> Zrusit
+                  </button>
+                  <button onClick={e => { e.stopPropagation(); handleUpload(); }}
+                    className="flex items-center gap-1.5 text-xs px-4 py-1.5 rounded-lg font-semibold text-white"
+                    style={{ background: 'var(--accent-link)' }}>
+                    <Upload size={12} /> Nahrat subor
+                  </button>
+                </div>
               </div>
             ) : isDragActive ? (
               <div className="flex flex-col items-center">
@@ -721,6 +766,17 @@ export default function Dashboard() {
               ))}
             </div>
           ) : null}
+
+          {/* Nacitat viac */}
+          {!globalSearch && hasMoreFiles && (
+            <div className="text-center pt-2">
+              <button onClick={loadMoreFiles}
+                className="px-6 py-2.5 rounded-2xl text-sm font-semibold transition-all"
+                style={{ background: 'var(--surface-2)', color: 'var(--accent-link)', border: '1px solid var(--border)' }}>
+                Nacitat viac suborov
+              </button>
+            </div>
+          )}
         </div>
 
         <p className="text-center text-xs" style={{ color: 'var(--text-dim)' }}>
