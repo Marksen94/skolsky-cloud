@@ -358,7 +358,46 @@ DO $ BEGIN
 END $;
 
 -- ============================================================
--- MIGRÁCIA — Privátny bucket + signed URLs (bezpečnosť)
+-- MIGRÁCIA — Rate limiting + XSS ochrana na úrovni DB
+-- Spusti v Supabase SQL Editore
+-- ============================================================
+
+-- Fix 5: Rate limit — max 20 súborov za deň na profil
+-- Vymaz starú INSERT policy a nahradň ju novou s COUNT checkm
+DROP POLICY IF EXISTS "Approved students can upload" ON files;
+
+CREATE POLICY "Approved students can upload (rate limited)"
+  ON files FOR INSERT
+  WITH CHECK (
+    -- trieda musí sediť s profilom
+    class = (
+      SELECT class FROM profiles WHERE id = auth.uid() AND status = 'approved'
+    )
+    AND uploaded_by = auth.uid()
+    -- max 20 súborov za posledných 24 hodín
+    AND (
+      SELECT COUNT(*) FROM files
+      WHERE uploaded_by = auth.uid()
+        AND created_at >= NOW() - INTERVAL '1 day'
+    ) < 20
+  );
+
+-- Fix 6: XSS ochrana — description nenávyší 300 znakov a neobsahuje HTML tagy
+-- (hlavná sanitácia je na klientovi, DB je posledná línia obrany)
+ALTER TABLE files
+  DROP CONSTRAINT IF EXISTS description_safe;
+
+ALTER TABLE files
+  ADD CONSTRAINT description_safe CHECK (
+    description IS NULL OR (
+      length(description) <= 300
+      AND description NOT LIKE '%<%'
+      AND description NOT LIKE '%>%'
+    )
+  );
+
+-- ============================================================
+
 -- Spusti v Supabase SQL Editore
 -- ============================================================
 

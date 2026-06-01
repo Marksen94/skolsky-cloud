@@ -230,6 +230,17 @@ export default function Dashboard() {
     setProfileError(''); setProfileSuccess(''); setShowProfile(true);
   }
 
+  // Fix 6 — sanitácia user inputu: strip HTML tagy + limit dĺžky
+  function sanitizeText(str, maxLength = 300) {
+    if (!str) return null;
+    const stripped = str
+      .replace(/<[^>]*>/g, '')       // strip HTML tagy
+      .replace(/[<>"'`]/g, '')       // strip zvyšné nebezpečné znaky
+      .trim()
+      .slice(0, maxLength);
+    return stripped || null;
+  }
+
   const onDrop = useCallback((accepted, rejected) => {
     setUploadError(''); setUploadSuccess('');
     if (rejected.length > 0) {
@@ -243,29 +254,69 @@ export default function Dashboard() {
     setSelectedFile(accepted[0]);
   }, []);
 
-  async function handleUpload() {
+  // Fix 4 — useCallback so správnymi závislosťami (žiadny stale closure)
+  // Fix 5 — rate limit: max 20 súborov za deň na profil (client-side check)
+  // Fix 6 — sanitácia description pred uložením
+  const handleUpload = useCallback(async () => {
     if (!selectedFile || uploading) return;
     setUploadError(''); setUploadSuccess('');
     setUploading(true);
+
+    // Fix 5 — klientská kontrola denného limitu
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const { count: todayCount, error: countErr } = await supabase
+      .from('files')
+      .select('id', { count: 'exact', head: true })
+      .eq('uploaded_by', profile.id)
+      .gte('created_at', startOfDay.toISOString());
+    if (!countErr && todayCount >= 20) {
+      setUploadError('Dosiahol si denný limit 20 súborov. Skús to znova zajtra.');
+      setUploading(false);
+      return;
+    }
+
     const file = selectedFile;
+    // Fix 6 — sanitácia description
+    const safeDesc = sanitizeText(description, 300);
+
     const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
     const path = `${profile.class}/${safeName}`;
-    const { error: uploadErr } = await supabase.storage.from('class-files').upload(path, file, { cacheControl: '3600', upsert: false });
-    if (uploadErr) { setUploadError('Chyba pri nahravani: ' + uploadErr.message); setUploading(false); setSelectedFile(null); return; }
-    const { data: { publicUrl } } = supabase.storage.from('class-files').getPublicUrl(path);
+
+    const { error: uploadErr } = await supabase.storage
+      .from('class-files')
+      .upload(path, file, { cacheControl: '3600', upsert: false });
+    if (uploadErr) {
+      setUploadError('Chyba pri nahravani: ' + uploadErr.message);
+      setUploading(false); setSelectedFile(null); return;
+    }
+
+    // Privátny bucket — ukladáme cestu, nie public URL
     const { data: inserted, error: dbErr } = await supabase.from('files').insert({
-      uploaded_by: profile.id, class: profile.class, file_name: path,
-      original_name: file.name, file_url: publicUrl, file_type: file.type,
-      file_size: file.size, description: description.trim() || null,
+      uploaded_by: profile.id,
+      class: profile.class,
+      file_name: path,
+      original_name: file.name,
+      file_url: path,          // cesta do storage (signed URL sa generuje pri stiahnutí)
+      file_type: file.type,
+      file_size: file.size,
+      description: safeDesc,
       folder_id: currentFolder ? currentFolder.id : null,
     }).select(`*, profiles(first_name, last_name)`).single();
-    if (dbErr) { setUploadError('Chyba pri ukladani: ' + dbErr.message); setUploading(false); setSelectedFile(null); return; }
+
+    if (dbErr) {
+      // Rollback — zmaž súbor zo storage ak DB zlyhal
+      await supabase.storage.from('class-files').remove([path]);
+      setUploadError('Chyba pri ukladani: ' + dbErr.message);
+      setUploading(false); setSelectedFile(null); return;
+    }
+
     if (inserted) setFiles(prev => [inserted, ...prev]);
     setUploadSuccess(`"${file.name}" bol uspesne nahraty!`);
     setDescription('');
     setSelectedFile(null);
     setUploading(false);
-  }
+  }, [profile, description, currentFolder, selectedFile, uploading]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -619,7 +670,8 @@ export default function Dashboard() {
           </div>
           <input type="text" className="input-field text-sm mb-4"
             placeholder="Popis suboru (napr. Matematika - vzorce) - volitelne"
-            value={description} onChange={e => setDescription(e.target.value)} disabled={uploading} />
+            value={description} onChange={e => setDescription(e.target.value)}
+            disabled={uploading} maxLength={300} />
           <div {...getRootProps()} className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-300
             ${isDragActive ? 'scale-[1.02]' : ''} ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}
             style={{ borderColor: isDragActive ? 'var(--accent-link)' : 'var(--border)', background: isDragActive ? 'rgba(26,58,107,0.1)' : 'transparent' }}>
