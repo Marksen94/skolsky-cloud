@@ -358,7 +358,43 @@ DO $ BEGIN
 END $;
 
 -- ============================================================
--- MIGRÁCIA — storage policies (webp + admin upload)
+-- MIGRÁCIA — Privátny bucket + signed URLs (bezpečnosť)
+-- Spusti v Supabase SQL Editore
+-- ============================================================
+
+-- 1. Prepni bucket na privátny
+UPDATE storage.buckets SET public = false WHERE id = 'class-files';
+
+-- 2. Zmaž pôvodnú verejnú READ policy
+DROP POLICY IF EXISTS "Public read access" ON storage.objects;
+
+-- 3. Pridaj autentifikovaný prístup — žiak číta len súbory svojej triedy
+CREATE POLICY "Authenticated students read own class"
+  ON storage.objects FOR SELECT
+  USING (
+    bucket_id = 'class-files'
+    AND auth.role() = 'authenticated'
+    AND (
+      -- žiak číta len priečinok svojej triedy
+      (storage.foldername(name))[1] = (
+        SELECT class FROM profiles WHERE id = auth.uid() AND status = 'approved'
+      )
+      -- admin číta všetko
+      OR EXISTS (
+        SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true
+      )
+    )
+  );
+
+-- ============================================================
+-- POZNÁMKA k signed URLs
+-- ============================================================
+-- Po tejto migrácii uložené file_url v tabuľke files sú neplatné
+-- (staré public URL). App teraz generuje signed URL cez
+-- supabase.storage.createSignedUrl(file_name, 300) pri každom
+-- stiahnutí/zobrazení. Staré záznamy v DB nie je potrebné meniť.
+-- ============================================================
+
 -- Spusti v Supabase SQL Editore ak máš existujúcu produkciu
 -- ============================================================
 

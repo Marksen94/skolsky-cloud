@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { supabase, CLASSES } from '@/lib/supabase';
+import { CLASSES } from '@/lib/supabase';
 import { CheckCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import ThemeToggle from '@/app/components/ThemeToggle';
 
@@ -24,23 +24,24 @@ export default function RegisterPage() {
     if (!form.class) { setError('Vyber svoju triedu.'); return; }
     setLoading(true);
 
-    const { data, error: authError } = await supabase.auth.signUp({
-      email: form.email, password: form.password,
-      options: { emailRedirectTo: `${window.location.origin}/dashboard` },
-    });
-    if (authError) {
-      setError(authError.message.includes('already registered') ? 'Tento email je už zaregistrovaný.' : 'Chyba: ' + authError.message);
-      setLoading(false); return;
+    try {
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: form.email,
+          password: form.password,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          class: form.class,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Chyba pri registrácii.'); setLoading(false); return; }
+      setSuccess(true);
+    } catch (err) {
+      setError('Sieťová chyba. Skontroluj pripojenie a skús znova.');
     }
-
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: data.user.id, first_name: form.firstName, last_name: form.lastName,
-      email: form.email, class: form.class, status: 'pending', is_admin: false,
-    });
-    if (profileError) { setError('Chyba: ' + profileError.message); setLoading(false); return; }
-
-    await supabase.auth.signOut();
-    setSuccess(true);
     setLoading(false);
   }
 

@@ -50,3 +50,13 @@ export function getFileIcon(type) {
   if (type.includes('excel') || type.includes('spreadsheet')) return '📈';
   return '📄';
 }
+
+// Vygeneruje dočasný podpisaný URL pre súbor (private bucket)
+// expiresIn = sekundy, default 5 minút
+export async function getSignedUrl(filePath, expiresIn = 300) {
+  const { data, error } = await supabase.storage
+    .from('class-files')
+    .createSignedUrl(filePath, expiresIn);
+  if (error) { console.error('getSignedUrl error:', error.message); return null; }
+  return data.signedUrl;
+}

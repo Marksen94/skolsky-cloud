@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { supabase, MAX_FILE_SIZE, formatFileSize, getFileIcon } from '@/lib/supabase';
+import { supabase, MAX_FILE_SIZE, formatFileSize, getFileIcon, getSignedUrl } from '@/lib/supabase';
 import { useDropzone } from 'react-dropzone';
 import { Upload, LogOut, Trash2, Download, Clock, User, CloudUpload, BookOpen, Search, AlertCircle, FolderOpen, X, Eye, EyeOff, CheckCircle, Lock, Folder, ChevronRight, FolderPlus, KeyRound, UserX, ChevronDown, ZoomIn, Menu } from 'lucide-react';
 import ThemeToggle from '@/app/components/ThemeToggle';
@@ -61,6 +61,25 @@ export default function Dashboard() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileLimit, setFileLimit] = useState(20);
   const [hasMoreFiles, setHasMoreFiles] = useState(false);
+
+  // Otvorí lightbox — vygeneruje signed URL pred zobrazením
+  async function openLightbox(file) {
+    const signedUrl = await getSignedUrl(file.file_name, 600);
+    setLightboxFile({ ...file, signedUrl: signedUrl || file.file_url });
+  }
+
+  // Stiahne súbor cez signed URL
+  async function downloadFile(file) {
+    const url = await getSignedUrl(file.file_name, 120);
+    if (!url) return;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.original_name;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 
   const globalSearch = search.trim().length > 0;
   const filteredFiles = globalSearch
@@ -308,11 +327,11 @@ export default function Dashboard() {
             style={{ background: 'rgba(255,255,255,0.1)', maxWidth: '70vw', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
             {lightboxFile.original_name}
           </div>
-          <img src={lightboxFile.file_url} alt={lightboxFile.original_name}
+          <img src={lightboxFile.signedUrl} alt={lightboxFile.original_name}
             onClick={e => e.stopPropagation()}
             className="animate-fade-in"
             style={{ maxWidth: '92vw', maxHeight: '86vh', objectFit: 'contain', borderRadius: '12px', boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }} />
-          <a href={lightboxFile.file_url} download target="_blank" rel="noopener noreferrer"
+          <a href={lightboxFile.signedUrl} download={lightboxFile.original_name} target="_blank" rel="noopener noreferrer"
             onClick={e => e.stopPropagation()}
             className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold text-white"
             style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}>
@@ -761,7 +780,8 @@ export default function Dashboard() {
               {filteredFiles.map(file => (
                 <FileCard key={file.id} file={file} isOwner={file.uploaded_by === profile?.id}
                   onDelete={() => deleteFile(file)} showFolder={globalSearch}
-                  onPreview={setLightboxFile}
+                  onPreview={openLightbox}
+                  onDownload={() => downloadFile(file)}
                   folderName={globalSearch && file.folder_id ? folders.find(f => f.id === file.folder_id)?.name : null} />
               ))}
             </div>
@@ -829,7 +849,7 @@ function FolderCard({ folder, childCount, fileCount, isOwner, onOpen, onDelete }
   );
 }
 
-function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview }) {
+function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview, onDownload }) {
   const date = new Date(file.created_at).toLocaleDateString('sk-SK', { day: '2-digit', month: 'short', year: 'numeric' });
   const isImage = file.file_type?.startsWith('image/');
   return (
@@ -867,11 +887,11 @@ function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview }
               <ZoomIn size={12} /> Nahlad
             </button>
           )}
-          <a href={file.file_url} target="_blank" rel="noopener noreferrer" download
+          <button onClick={onDownload}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
             style={{ background: 'rgba(26,58,107,0.15)', color: 'var(--accent-link)' }}>
             <Download size={12} /> {isImage ? '' : 'Stiahnut'}
-          </a>
+          </button>
         </div>
       </div>
     </div>
