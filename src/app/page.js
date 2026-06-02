@@ -230,6 +230,7 @@ export default function LoginPage() {
                     Email
                   </label>
                   <input type="email" className="input-field" placeholder="tvoj@email.com"
+                    autoComplete="email"
                     value={email} onChange={e => setEmail(e.target.value)} required />
                 </div>
 
@@ -244,6 +245,7 @@ export default function LoginPage() {
                   </div>
                   <div className="relative">
                     <input type={showPw ? 'text' : 'password'} className="input-field pr-12"
+                      autoComplete="current-password"
                       placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
                     <button type="button" onClick={() => setShowPw(!showPw)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 transition-all hover:scale-110 active:scale-95"

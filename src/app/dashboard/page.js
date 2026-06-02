@@ -619,7 +619,8 @@ export default function Dashboard() {
                   <div>
                     <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Aktualne heslo</label>
                     <div className="relative">
-                      <input type={showEditPw ? 'text' : 'password'} className="input-field pr-10"
+                    <input type={showEditPw ? 'text' : 'password'} className="input-field pr-10"
+                        autoComplete="current-password"
                         placeholder="vase aktualne heslo" value={currentPw} onChange={e => setCurrentPw(e.target.value)} required />
                       <button type="button" onClick={() => setShowEditPw(!showEditPw)}
                         className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
@@ -630,11 +631,13 @@ export default function Dashboard() {
                   <div>
                     <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Nove heslo</label>
                     <input type={showEditPw ? 'text' : 'password'} className="input-field"
+                      autoComplete="new-password"
                       placeholder="min. 6 znakov" value={editPw} onChange={e => setEditPw(e.target.value)} required />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Zopakujte nove heslo</label>
                     <input type={showEditPw ? 'text' : 'password'} className="input-field"
+                      autoComplete="new-password"
                       placeholder="zopakujte heslo" value={editPwConfirm} onChange={e => setEditPwConfirm(e.target.value)} required />
                   </div>
                 </div>
@@ -998,7 +1001,7 @@ function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview, 
           <button onClick={onDownload}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
             style={{ background: 'rgba(26,58,107,0.15)', color: 'var(--accent-link)' }}>
-            <Download size={12} /> {isImage ? '' : 'Stiahnut'}
+            <Download size={12} /> Stiahnut
           </button>
         </div>
       </div>

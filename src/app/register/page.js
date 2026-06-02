@@ -110,11 +110,13 @@ export default function RegisterPage() {
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Meno *</label>
                 <input name="firstName" type="text" className="input-field" placeholder="Ján"
+                  autoComplete="given-name"
                   value={form.firstName} onChange={handleChange} required />
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Priezvisko *</label>
                 <input name="lastName" type="text" className="input-field" placeholder="Novák"
+                  autoComplete="family-name"
                   value={form.lastName} onChange={handleChange} required />
               </div>
             </div>
@@ -122,6 +124,7 @@ export default function RegisterPage() {
             <div>
               <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Email *</label>
               <input name="email" type="email" className="input-field" placeholder="jan.novak@email.com"
+                autoComplete="email"
                 value={form.email} onChange={handleChange} required />
             </div>
 
@@ -137,6 +140,7 @@ export default function RegisterPage() {
               <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Heslo *</label>
               <div className="relative">
                 <input name="password" type={showPw ? 'text' : 'password'} className="input-field pr-12"
+                  autoComplete="new-password"
                   placeholder="min. 6 znakov" value={form.password} onChange={handleChange} required />
                 <button type="button" onClick={() => setShowPw(!showPw)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors" style={{ color: 'var(--text-muted)' }}>
@@ -148,6 +152,7 @@ export default function RegisterPage() {
             <div>
               <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Potvrdiť heslo *</label>
               <input name="confirmPassword" type={showPw ? 'text' : 'password'} className="input-field"
+                autoComplete="new-password"
                 placeholder="••••••••" value={form.confirmPassword} onChange={handleChange} required />
             </div>
 
