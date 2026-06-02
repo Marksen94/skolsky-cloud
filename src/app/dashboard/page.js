@@ -947,7 +947,7 @@ function FolderCard({ folder, childCount, fileCount, isOwner, onOpen, onDelete }
           </div>
           {isOwner && (
             <button type="button" onClick={e => { e.stopPropagation(); onDelete(); }}
-              className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all"
+              className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 w-6 h-6 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all"
               style={{ background: 'rgba(200,32,10,0.1)' }}>
               <Trash2 size={12} />
             </button>
@@ -971,10 +971,10 @@ function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview, 
       <div className="flex items-start justify-between gap-2 mb-3">
         <span className="text-2xl">{getFileIcon(file.file_type)}</span>
         {isOwner && (
-          <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all"
-            style={{ background: 'rgba(200,32,10,0.1)' }}>
-            <Trash2 size={14} />
-          </button>
+        <button onClick={onDelete} className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all"
+        style={{ background: 'rgba(200,32,10,0.1)' }}>
+        <Trash2 size={14} />
+        </button>
         )}
       </div>
       <p className="font-semibold text-sm leading-tight mb-1 line-clamp-2" style={{ color: 'var(--text)' }}>{file.original_name}</p>

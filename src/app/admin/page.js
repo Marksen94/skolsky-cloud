@@ -560,12 +560,12 @@ export default function AdminPage() {
                 </select>
               </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto -mx-6 px-6">
+              <table className="w-full text-sm min-w-[500px]">
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border)' }}>
                     {['Meno', 'Email', 'Trieda', 'Stav', ''].map(h => (
-                      <th key={h} className="text-left py-2 px-3 font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{h}</th>
+                      <th key={h} className={`text-left py-2 px-3 font-semibold text-xs uppercase tracking-wide${h === 'Email' ? ' hidden sm:table-cell' : ''}`} style={{ color: 'var(--text-muted)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -577,7 +577,6 @@ export default function AdminPage() {
                       <td className="py-3 px-3 font-semibold" style={{ color: 'var(--text)' }}>
                         <div className="flex items-center gap-2 flex-wrap">
                           {user.first_name} {user.last_name}
-                          {/* Fix 6 — fialové badge ak žiak žiada o zrušenie */}
                           {user.deletion_requested && (
                             <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
                               style={{ background: 'rgba(139,92,246,0.15)', color: '#a855f7', border: '1px solid rgba(139,92,246,0.3)' }}>
@@ -586,7 +585,7 @@ export default function AdminPage() {
                           )}
                         </div>
                       </td>
-                      <td className="py-3 px-3" style={{ color: 'var(--text-muted)' }}>{user.email}</td>
+                      <td className="py-3 px-3 hidden sm:table-cell" style={{ color: 'var(--text-muted)' }}>{user.email}</td>
                       <td className="py-3 px-3"><span className="bg-school-blue text-white text-xs px-2 py-0.5 rounded-full font-medium">{user.class}</span></td>
                       <td className="py-3 px-3">
                         <span className={user.status === 'approved' ? 'badge-approved' : 'badge-rejected'}>
