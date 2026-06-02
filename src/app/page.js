@@ -108,7 +108,7 @@ export default function LoginPage() {
             </div>
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-[10px] font-bold tracking-[0.2em] text-red-400 uppercase">Školský Cloud</span>
+                <span className="text-[10px] font-bold tracking-[0.2em] text-red-400 uppercase">Cloud pre žiakov</span>
                 <div className="w-1 h-1 rounded-full bg-red-400 opacity-60" />
                 <span className="text-[10px] font-bold tracking-[0.2em] text-blue-400/70 uppercase">2026</span>
               </div>
@@ -295,7 +295,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-center text-xs mt-5" style={{ color: 'var(--text-dim)' }}>
-            Školský cloudový systém
+            Cloud Spojenej školy Sečovce
           </p>
         </div>
       </div>

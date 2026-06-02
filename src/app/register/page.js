@@ -66,7 +66,7 @@ export default function RegisterPage() {
           </div>
           <div className="rounded-xl p-3 text-xs mb-6" style={{ background: 'rgba(26,58,107,0.1)', border: '1px solid rgba(26,58,107,0.25)', color: 'var(--accent-link)' }}>
             <p>📧 <strong>{process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'rumont.sro@gmail.com'}</strong></p>
-            <p>📱 Instagram: <strong>@https_riso</strong></p>
+            <p>📱 Instagram: <strong>@rumot_sro</strong></p>
           </div>
           <Link href="/" className="btn-primary block text-center">Späť na prihlásenie</Link>
         </div>
@@ -88,7 +88,7 @@ export default function RegisterPage() {
           <h1 className="text-xl font-bold" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>
             Spojená škola Kollárova 17, Sečovce
           </h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Školský cloudový systém</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Cloud Spojenej školy Sečovce</p>
         </div>
 
         <div className="card shadow-card animate-slide-up">
@@ -157,7 +157,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="rounded-xl p-3 text-xs" style={{ background: 'rgba(180,100,0,0.1)', border: '1px solid rgba(180,100,0,0.25)', color: '#d97706' }}>
-              ⚠️ Po registrácii <strong>napíš správcovi</strong> (Instagram @https_riso) aby schválil tvoj účet.
+              ⚠️ Po registrácii <strong>napíš správcovi</strong> (Instagram @rumot_sro) aby schválil tvoj účet.
             </div>
 
             <button type="submit" disabled={loading} className="btn-primary w-full">

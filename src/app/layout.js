@@ -2,8 +2,8 @@ import './globals.css';
 import { ThemeProvider } from '@/lib/ThemeContext';
 
 export const metadata = {
-  title: 'Spojená škola Kollárova 17, Sečovce – Školský Cloud',
-  description: 'Zdieľanie poznámok a materiálov pre žiakov Spojenej školy Sečovce',
+  title: 'Spojená škola Kollárova 17, Sečovce – Cloud pre žiakov',
+  description: 'Cloudové úloziško pre žiakov Spojenej školy Kollárova 17, Sečovce',
 };
 
 export default function RootLayout({ children }) {
