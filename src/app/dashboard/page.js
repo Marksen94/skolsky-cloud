@@ -669,8 +669,11 @@ export default function Dashboard() {
               <Image src="/logo.png" alt="Logo" width={32} height={32} className="object-contain" />
             </div>
             <div>
-              <p className="text-white font-bold text-sm" style={{ fontFamily: 'Sora, sans-serif' }}>
+              <p className="text-white font-bold text-sm hidden sm:block" style={{ fontFamily: 'Sora, sans-serif' }}>
                 Spojená škola Kollárova 17, Sečovce
+              </p>
+              <p className="text-white font-bold text-sm sm:hidden" style={{ fontFamily: 'Sora, sans-serif' }}>
+                SS Sečovce
               </p>
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -784,9 +787,9 @@ export default function Dashboard() {
         </div>
 
         <div className="card shadow-card animate-slide-up">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--surface-2)' }}>
                 <FolderOpen size={16} style={{ color: 'var(--accent-link)' }} />
               </div>
               <h3 className="font-bold" style={{ color: 'var(--text)' }}>
@@ -796,14 +799,14 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               {!globalSearch && folderPath.length < 3 && (
                 <button onClick={() => { setShowCreateFolder(true); setFolderError(''); setNewFolderName(''); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold flex-shrink-0"
                   style={{ background: 'var(--surface-2)', color: 'var(--accent-link)' }}>
                   <FolderPlus size={13} /> Novy priecinok
                 </button>
               )}
-              <div className="input-with-icon" style={{ minWidth: 0 }}>
+              <div className="input-with-icon flex-1" style={{ minWidth: 0 }}>
                 <Search size={15} className="input-icon" />
-                <input className="input-inner text-sm" style={{ width: '140px' }}
+                <input className="input-inner text-sm" style={{ width: '100%' }}
                   placeholder="Hladaj..."
                   value={search} onChange={e => setSearch(e.target.value)} />
                 {globalSearch && (
