@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { supabase, CLASSES, MAX_FILE_SIZE, formatFileSize, getFileIcon } from '@/lib/supabase';
+import { supabase, CLASSES, MAX_FILE_SIZE, formatFileSize, getFileIcon, getSignedUrl } from '@/lib/supabase';
 import { useDropzone } from 'react-dropzone';
 import {
   Users, FileText, CheckCircle, XCircle, Trash2, LogOut, Shield, Clock,
@@ -333,10 +333,10 @@ export default function AdminPage() {
       const { error: uploadErr } = await supabase.storage.from('class-files').upload(path, file, { cacheControl: '3600', upsert: false });
       if (uploadErr) { setUploadError('Chyba pri nahrávaní: ' + uploadErr.message); setUploading(false); return; }
       
-      const { data: { publicUrl } } = supabase.storage.from('class-files').getPublicUrl(path);
+      // FIX: Ukladáme cestu (nie publicUrl) — bucket je privátny
       const { data: inserted, error: dbErr } = await supabase.from('files').insert({
         uploaded_by: adminProfile.id, class: uploadClass, file_name: path,
-        original_name: file.name, file_url: publicUrl, file_type: file.type,
+        original_name: file.name, file_url: path, file_type: file.type,
         file_size: file.size, description: uploadDesc.trim() || null,
         folder_id: uploadFolderId || null,
       }).select('*').single();
@@ -424,7 +424,8 @@ export default function AdminPage() {
       <header className="school-header">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between relative z-10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm p-1">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm p-1"
+              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)' }}>
               <Image src="/logo.png" alt="Logo" width={32} height={32} className="object-contain" />
             </div>
             <div>
@@ -782,7 +783,13 @@ export default function AdminPage() {
                         <td className="py-3 px-3 text-xs" style={{ color: 'var(--text-muted)' }}>{new Date(file.created_at).toLocaleDateString('sk-SK')}</td>
                         <td className="py-3 px-3">
                           <div className="flex items-center justify-end gap-2">
-                            <a href={file.file_url} target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color: 'var(--accent-link)' }}><Download size={14} /></a>
+                            <button onClick={async () => {
+                              const url = await getSignedUrl(file.file_name, 120);
+                              if (!url) return;
+                              const a = document.createElement('a');
+                              a.href = url; a.download = file.original_name; a.target = '_blank';
+                              document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                            }} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color: 'var(--accent-link)' }}><Download size={14} /></button>
                             <button onClick={() => deleteFile(file)} className="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all"><Trash2 size={14} /></button>
                           </div>
                         </td>
