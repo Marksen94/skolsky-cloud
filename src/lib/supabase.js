@@ -13,7 +13,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 // Zoznam tried
 export const CLASSES = [
-  '1.A', '1.C', '1.T', '1.G', '1.H',
+  '1.A', '1.C', '1.T', '1.G', '1.H', '1.V',
   '2.A', '2.C', '2.T', '2.G',
   '3.A', '3.C', '3.T', '3.G',
   '4.A', '4.C', '4.T', '4.G',
