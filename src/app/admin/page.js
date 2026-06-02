@@ -377,7 +377,7 @@ export default function AdminPage() {
 
   const filteredUsers = approved.filter(u => {
     const name = `${u.first_name} ${u.last_name} ${u.email} ${u.class}`.toLowerCase();
-    return name.includes(userSearch.toLowerCase()) && (classFilter ? u.class === classFilter : true);
+    return name.includes(userSearch.toLowerCase()) && (classFilter ? u.class === classFilter : true) && !u.deletion_requested;
   });
   const uniqueClasses = new Set(approved.map(u => u.class)).size;
   const filteredFiles = files.filter(f => {
