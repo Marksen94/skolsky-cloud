@@ -25,7 +25,11 @@ export default function Dashboard() {
     const btn = userMenuBtnRef.current;
     if (!btn) return { top: 72, right: 16 };
     const r = btn.getBoundingClientRect();
-    return { top: r.bottom + 8, right: window.innerWidth - r.right };
+    const menuWidth = 200;
+    const rightVal = window.innerWidth - r.right;
+    // Zabráni menu vypadnúť mimo ľavý okraj obrazovky
+    const clampedRight = Math.min(rightVal, window.innerWidth - menuWidth - 8);
+    return { top: r.bottom + 8, right: Math.max(8, clampedRight) };
   }
   const [showProfile, setShowProfile] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -734,7 +738,7 @@ export default function Dashboard() {
             placeholder="Popis suboru (napr. Matematika - vzorce) - volitelne"
             value={description} onChange={e => setDescription(e.target.value)}
             disabled={uploading} maxLength={300} />
-          <div {...getRootProps()} className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-300
+          <div {...getRootProps()} className={`border-2 border-dashed rounded-2xl p-5 sm:p-12 text-center cursor-pointer transition-all duration-300
             ${isDragActive ? 'scale-[1.02]' : ''} ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}
             style={{ borderColor: isDragActive ? 'var(--accent-link)' : 'var(--border)', background: isDragActive ? 'rgba(26,58,107,0.1)' : 'transparent' }}>
             <input {...getInputProps()} />
