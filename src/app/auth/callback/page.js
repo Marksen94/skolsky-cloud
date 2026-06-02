@@ -29,6 +29,11 @@ function AuthCallbackContent() {
 
         // Vždy smeruj na update-password ak ide o reset hesla
         router.push('/update-password');
+      })
+      .catch((err) => {
+        console.error('Unexpected error exchanging code for session:', err);
+        setStatus('Nastala neočakávaná chyba. Presmerovávam...');
+        setTimeout(() => router.push('/forgot-password'), 2500);
       });
   }, [router, searchParams]);
 

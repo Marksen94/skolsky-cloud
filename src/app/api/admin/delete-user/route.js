@@ -46,16 +46,20 @@ export async function DELETE(request) {
     // ────────────────────────────────────────────────────────────────────────
 
     // Najprv vymaž súbory žiaka zo storage
-    const { data: userFiles } = await supabaseAdmin
+    const { data: userFiles, error: userFilesErr } = await supabaseAdmin
       .from('files')
       .select('file_name')
       .eq('uploaded_by', userId);
+    if (userFilesErr) throw userFilesErr;
 
     if (userFiles?.length) {
-      await supabaseAdmin.storage
+      const { error: storageErr } = await supabaseAdmin.storage
         .from('class-files')
         .remove(userFiles.map(f => f.file_name));
-      await supabaseAdmin.from('files').delete().eq('uploaded_by', userId);
+      if (storageErr) throw storageErr;
+
+      const { error: deleteFilesErr } = await supabaseAdmin.from('files').delete().eq('uploaded_by', userId);
+      if (deleteFilesErr) throw deleteFilesErr;
     }
 
     // Vymaž profil

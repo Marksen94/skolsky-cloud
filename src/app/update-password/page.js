@@ -47,17 +47,23 @@ export default function UpdatePasswordPage() {
     }
 
     setLoading(true);
-    const { error: updateError } = await supabase.auth.updateUser({ password });
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({ password });
 
-    if (updateError) {
-      setError('Chyba pri aktualizácii hesla: ' + updateError.message);
+      if (updateError) {
+        setError('Chyba pri aktualizácii hesla: ' + updateError.message);
+        setLoading(false);
+        return;
+      }
+
+      await supabase.auth.signOut();
+      setSuccess(true);
+      setTimeout(() => router.push('/'), 3000);
+    } catch (err) {
+      console.error(err);
+      setError('Nastala neočakávaná chyba pri aktualizácii hesla.');
       setLoading(false);
-      return;
     }
-
-    await supabase.auth.signOut();
-    setSuccess(true);
-    setTimeout(() => router.push('/'), 3000);
   }
 
   return (

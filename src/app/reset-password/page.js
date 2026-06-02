@@ -18,9 +18,14 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.log("Session nenájdená, čaká sa na spracovanie hash fragmentu...");
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (!session) {
+          console.log("Session nenájdená, čaká sa na spracovanie hash fragmentu...");
+        }
+      } catch (err) {
+        console.error('Error checking session:', err);
       }
     };
     checkSession();
@@ -43,19 +48,25 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: password
-    });
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: password
+      });
 
-    if (updateError) {
-      setError('Chyba pri zmene hesla: ' + updateError.message);
-    } else {
-      setSuccess(true);
-      setTimeout(() => {
-        router.push('/');
-      }, 3000);
+      if (updateError) {
+        setError('Chyba pri zmene hesla: ' + updateError.message);
+      } else {
+        setSuccess(true);
+        setTimeout(() => {
+          router.push('/');
+        }, 3000);
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Nastala neočakávaná chyba pri zmene hesla.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (

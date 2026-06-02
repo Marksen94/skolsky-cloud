@@ -19,40 +19,57 @@ export default function LoginPage() {
 
   useEffect(() => {
     setMounted(true);
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) redirectUser(session.user.id);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        if (error) throw error;
+        if (session) redirectUser(session.user.id);
+      })
+      .catch(err => {
+        console.error('Error getting session:', err);
+      });
   }, []);
 
   async function redirectUser(userId) {
-    const { data: profile } = await supabase
-      .from('profiles').select('is_admin, status').eq('id', userId).single();
-    if (profile?.is_admin) router.push('/admin');
-    else router.push('/dashboard');
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles').select('is_admin, status').eq('id', userId).single();
+      if (error) throw error;
+      if (profile?.is_admin) router.push('/admin');
+      else router.push('/dashboard');
+    } catch (err) {
+      console.error('Error redirecting user:', err);
+    }
   }
 
   async function handleLogin(e) {
     e.preventDefault();
     setLoading(true);
     setError('');
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-    if (authError) { setError('Nesprávny email alebo heslo.'); setLoading(false); return; }
-    const { data: profile } = await supabase
-      .from('profiles').select('status, is_admin').eq('id', data.user.id).single();
-    if (!profile) {
-      setError('Profil nebol nájdený. Kontaktuj správcu.');
-      await supabase.auth.signOut(); setLoading(false); return;
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      if (authError) { setError('Nesprávny email alebo heslo.'); setLoading(false); return; }
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles').select('status, is_admin').eq('id', data.user.id).single();
+      if (profileErr) throw profileErr;
+      if (!profile) {
+        setError('Profil nebol nájdený. Kontaktuj správcu.');
+        await supabase.auth.signOut(); setLoading(false); return;
+      }
+      if (profile.status === 'pending') {
+        setError('Tvoj účet čaká na schválenie. Napíš nám na Instagram alebo email.');
+        await supabase.auth.signOut(); setLoading(false); return;
+      }
+      if (profile.status === 'rejected') {
+        setError('Tvoj účet bol zamietnutý. Kontaktuj správcu školy.');
+        await supabase.auth.signOut(); setLoading(false); return;
+      }
+      if (profile.is_admin) router.push('/admin');
+      else router.push('/dashboard');
+    } catch (err) {
+      console.error(err);
+      setError('Nastala neočakávaná chyba pri prihlasovaní.');
+      setLoading(false);
     }
-    if (profile.status === 'pending') {
-      setError('Tvoj účet čaká na schválenie. Napíš nám na Instagram alebo email.');
-      await supabase.auth.signOut(); setLoading(false); return;
-    }
-    if (profile.status === 'rejected') {
-      setError('Tvoj účet bol zamietnutý. Kontaktuj správcu školy.');
-      await supabase.auth.signOut(); setLoading(false); return;
-    }
-    if (profile.is_admin) router.push('/admin');
-    else router.push('/dashboard');
   }
 
   return (

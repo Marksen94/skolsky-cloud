@@ -67,36 +67,65 @@ export default function AdminPage() {
   }, []);
 
   async function checkAdmin() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { router.push('/'); return; }
-    const { data: prof } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-    if (!prof?.is_admin) { router.push('/dashboard'); return; }
-    setAdminProfile(prof);
-    await Promise.all([loadPending(), loadApproved(), loadFiles()]);
-    setLoading(false);
+    try {
+      const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
+      if (sessionErr) throw sessionErr;
+      if (!session) { router.push('/'); return; }
+      const { data: prof, error: profErr } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+      if (profErr) throw profErr;
+      if (!prof?.is_admin) { router.push('/dashboard'); return; }
+      setAdminProfile(prof);
+      await Promise.all([loadPending(), loadApproved(), loadFiles()]);
+    } catch (err) {
+      console.error('Error checking admin:', err);
+      router.push('/dashboard');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function loadPending() {
-    const { data } = await supabase.from('profiles').select('*').eq('status', 'pending').order('created_at', { ascending: false });
-    setPending(data || []);
-    const { data: dr } = await supabase.from('profiles').select('*').eq('deletion_requested', true).order('created_at', { ascending: false });
-    setDeletionRequests(dr || []);
+    try {
+      const { data, error } = await supabase.from('profiles').select('*').eq('status', 'pending').order('created_at', { ascending: false });
+      if (error) throw error;
+      setPending(data || []);
+      const { data: dr, error: drErr } = await supabase.from('profiles').select('*').eq('deletion_requested', true).order('created_at', { ascending: false });
+      if (drErr) throw drErr;
+      setDeletionRequests(dr || []);
+    } catch (err) {
+      console.error('Error loading pending:', err);
+    }
   }
 
   async function loadApproved() {
-    const { data } = await supabase.from('profiles').select('*').in('status', ['approved', 'rejected']).eq('is_admin', false).order('created_at', { ascending: false });
-    setApproved(data || []);
+    try {
+      const { data, error } = await supabase.from('profiles').select('*').in('status', ['approved', 'rejected']).eq('is_admin', false).order('created_at', { ascending: false });
+      if (error) throw error;
+      setApproved(data || []);
+    } catch (err) {
+      console.error('Error loading approved users:', err);
+    }
   }
 
   async function loadFiles() {
-    const { data } = await supabase.from('files').select(`*, profiles(first_name, last_name)`).order('created_at', { ascending: false });
-    setFiles(data || []);
+    try {
+      const { data, error } = await supabase.from('files').select(`*, profiles(first_name, last_name)`).order('created_at', { ascending: false });
+      if (error) throw error;
+      setFiles(data || []);
+    } catch (err) {
+      console.error('Error loading files:', err);
+    }
   }
 
   async function rejectDeletion(id) {
-    await supabase.from('profiles').update({ deletion_requested: false }).eq('id', id);
-    setDeletionRequests(prev => prev.filter(u => u.id !== id));
-    setApproved(prev => prev.map(u => u.id === id ? { ...u, deletion_requested: false } : u));
+    try {
+      const { error } = await supabase.from('profiles').update({ deletion_requested: false }).eq('id', id);
+      if (error) throw error;
+      setDeletionRequests(prev => prev.filter(u => u.id !== id));
+      setApproved(prev => prev.map(u => u.id === id ? { ...u, deletion_requested: false } : u));
+    } catch (err) {
+      console.error('Error rejecting deletion:', err);
+    }
   }
 
   async function confirmDeletion(user) {
@@ -127,8 +156,14 @@ export default function AdminPage() {
   }
 
   async function approveUser(id) {
-    await supabase.from('profiles').update({ status: 'approved' }).eq('id', id);
-    await loadPending(); await loadApproved();
+    try {
+      const { error } = await supabase.from('profiles').update({ status: 'approved' }).eq('id', id);
+      if (error) throw error;
+      await loadPending();
+      await loadApproved();
+    } catch (err) {
+      console.error('Error approving user:', err);
+    }
   }
 
   function rejectUser(id, name) {
@@ -136,8 +171,14 @@ export default function AdminPage() {
       title: 'Zamietnuť žiadosť?',
       message: `Žiadosť od ${name} bude zamietnutá.`,
       onConfirm: async () => {
-        await supabase.from('profiles').update({ status: 'rejected' }).eq('id', id);
-        await loadPending(); await loadApproved();
+        try {
+          const { error } = await supabase.from('profiles').update({ status: 'rejected' }).eq('id', id);
+          if (error) throw error;
+          await loadPending();
+          await loadApproved();
+        } catch (err) {
+          console.error('Error rejecting user:', err);
+        }
       },
     });
   }
@@ -169,9 +210,16 @@ export default function AdminPage() {
       title: 'Vymazať súbor?',
       message: `„${file.original_name}" bude natrvalo vymazaný.`,
       onConfirm: async () => {
-        await supabase.storage.from('class-files').remove([file.file_name]);
-        await supabase.from('files').delete().eq('id', file.id);
-        setFiles(prev => prev.filter(f => f.id !== file.id));
+        try {
+          const { error: storageErr } = await supabase.storage.from('class-files').remove([file.file_name]);
+          if (storageErr) throw storageErr;
+          const { error: dbErr } = await supabase.from('files').delete().eq('id', file.id);
+          if (dbErr) throw dbErr;
+          setFiles(prev => prev.filter(f => f.id !== file.id));
+        } catch (err) {
+          console.error(err);
+          askConfirm({ title: 'Chyba', message: 'Nepodarilo sa vymazať súbor: ' + err.message, danger: false, onConfirm: () => {} });
+        }
       },
     });
   }
@@ -181,8 +229,13 @@ export default function AdminPage() {
     setAdminCurrentFolder(null); setAdminFolderPath([]);
     setShowAdminCreateFolder(false); setAdminFolderError('');
     if (!cls) { setUploadClassFolders([]); return; }
-    const { data } = await supabase.from('folders').select('id, name, parent_id, created_by').eq('class', cls).order('name', { ascending: true });
-    setUploadClassFolders(data || []);
+    try {
+      const { data, error } = await supabase.from('folders').select('id, name, parent_id, created_by').eq('class', cls).order('name', { ascending: true });
+      if (error) throw error;
+      setUploadClassFolders(data || []);
+    } catch (err) {
+      console.error('Error loading folders for class:', err);
+    }
   }
 
   function adminNavigateToFolder(folder) {
@@ -206,13 +259,19 @@ export default function AdminPage() {
     if (!newAdminFolderName.trim()) return;
     if (adminFolderPath.length >= 3) { setAdminFolderError('Dosiahli ste maximálnu úroveň vnorenia (3).'); return; }
     setAdminFolderSaving(true); setAdminFolderError('');
-    const { data: newFolder, error } = await supabase.from('folders').insert({
-      name: newAdminFolderName.trim(), class: uploadClass,
-      parent_id: adminCurrentFolder ? adminCurrentFolder.id : null, created_by: adminProfile.id,
-    }).select('id, name, parent_id, created_by').single();
-    if (error) { setAdminFolderError('Nepodarilo sa vytvoriť priečinok: ' + error.message); setAdminFolderSaving(false); return; }
-    if (newFolder) setUploadClassFolders(prev => [...prev, newFolder]);
-    setNewAdminFolderName(''); setShowAdminCreateFolder(false); setAdminFolderSaving(false);
+    try {
+      const { data: newFolder, error } = await supabase.from('folders').insert({
+        name: newAdminFolderName.trim(), class: uploadClass,
+        parent_id: adminCurrentFolder ? adminCurrentFolder.id : null, created_by: adminProfile.id,
+      }).select('id, name, parent_id, created_by').single();
+      if (error) throw error;
+      if (newFolder) setUploadClassFolders(prev => [...prev, newFolder]);
+      setNewAdminFolderName(''); setShowAdminCreateFolder(false);
+    } catch (error) {
+      setAdminFolderError('Nepodarilo sa vytvoriť priečinok: ' + error.message);
+    } finally {
+      setAdminFolderSaving(false);
+    }
   }
 
   function adminDeleteFolder(folder) {
@@ -220,26 +279,35 @@ export default function AdminPage() {
       title: `Vymazať priečinok?`,
       message: `Priečinok „${folder.name}" a všetok jeho obsah bude natrvalo vymazaný.`,
       onConfirm: async () => {
-        const getDescendantIds = (folderId, list) => {
-          let ids = [folderId];
-          for (const f of list.filter(f => f.parent_id === folderId)) ids = [...ids, ...getDescendantIds(f.id, list)];
-          return ids;
-        };
-        const folderIdsToDelete = getDescendantIds(folder.id, uploadClassFolders);
-        const { data: filesToDelete } = await supabase.from('files').select('file_name').in('folder_id', folderIdsToDelete);
-        if (filesToDelete?.length > 0) {
-          const names = filesToDelete.map(f => f.file_name);
-          for (let i = 0; i < names.length; i += 100) await supabase.storage.from('class-files').remove(names.slice(i, i + 100));
-          await supabase.from('files').delete().in('folder_id', folderIdsToDelete);
-          setFiles(prev => prev.filter(f => !folderIdsToDelete.includes(f.folder_id)));
-        }
-        const { error: dbErr } = await supabase.from('folders').delete().eq('id', folder.id);
-        if (dbErr) { askConfirm({ title: 'Chyba', message: dbErr.message, danger: false, onConfirm: () => {} }); return; }
-        setUploadClassFolders(prev => prev.filter(f => !folderIdsToDelete.includes(f.id)));
-        if (uploadFolderId && folderIdsToDelete.includes(uploadFolderId)) setUploadFolderId('');
-        if (adminCurrentFolder && folderIdsToDelete.includes(adminCurrentFolder.id)) {
-          const parent = folder.parent_id ? uploadClassFolders.find(f => f.id === folder.parent_id) : null;
-          adminNavigateToFolder(parent || null);
+        try {
+          const getDescendantIds = (folderId, list) => {
+            let ids = [folderId];
+            for (const f of list.filter(f => f.parent_id === folderId)) ids = [...ids, ...getDescendantIds(f.id, list)];
+            return ids;
+          };
+          const folderIdsToDelete = getDescendantIds(folder.id, uploadClassFolders);
+          const { data: filesToDelete, error: filesErr } = await supabase.from('files').select('file_name').in('folder_id', folderIdsToDelete);
+          if (filesErr) throw filesErr;
+          if (filesToDelete?.length > 0) {
+            const names = filesToDelete.map(f => f.file_name);
+            for (let i = 0; i < names.length; i += 100) {
+              const { error: storageErr } = await supabase.storage.from('class-files').remove(names.slice(i, i + 100));
+              if (storageErr) throw storageErr;
+            }
+            const { error: deleteFilesErr } = await supabase.from('files').delete().in('folder_id', folderIdsToDelete);
+            if (deleteFilesErr) throw deleteFilesErr;
+            setFiles(prev => prev.filter(f => !folderIdsToDelete.includes(f.folder_id)));
+          }
+          const { error: dbErr } = await supabase.from('folders').delete().eq('id', folder.id);
+          if (dbErr) throw dbErr;
+          setUploadClassFolders(prev => prev.filter(f => !folderIdsToDelete.includes(f.id)));
+          if (uploadFolderId && folderIdsToDelete.includes(uploadFolderId)) setUploadFolderId('');
+          if (adminCurrentFolder && folderIdsToDelete.includes(adminCurrentFolder.id)) {
+            const parent = folder.parent_id ? uploadClassFolders.find(f => f.id === folder.parent_id) : null;
+            adminNavigateToFolder(parent || null);
+          }
+        } catch (err) {
+          askConfirm({ title: 'Chyba', message: 'Nepodarilo sa vymazať priečinok: ' + err.message, danger: false, onConfirm: () => {} });
         }
       },
     });
@@ -257,22 +325,40 @@ export default function AdminPage() {
     if (accepted.length === 0) return;
     const file = accepted[0];
     setUploading(true);
-    const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-    const path = `${uploadClass}/${safeName}`;
-    const { error: uploadErr } = await supabase.storage.from('class-files').upload(path, file, { cacheControl: '3600', upsert: false });
-    if (uploadErr) { setUploadError('Chyba pri nahrávaní: ' + uploadErr.message); setUploading(false); return; }
-    const { data: { publicUrl } } = supabase.storage.from('class-files').getPublicUrl(path);
-    const { data: inserted, error: dbErr } = await supabase.from('files').insert({
-      uploaded_by: adminProfile.id, class: uploadClass, file_name: path,
-      original_name: file.name, file_url: publicUrl, file_type: file.type,
-      file_size: file.size, description: uploadDesc.trim() || null,
-      folder_id: uploadFolderId || null,
-    }).select('*').single();
-    if (dbErr) { setUploadError('Chyba pri ukladaní: ' + dbErr.message); setUploading(false); return; }
-    if (inserted) setFiles(prev => [{ ...inserted, profiles: { first_name: adminProfile.first_name, last_name: adminProfile.last_name } }, ...prev]);
-    const folderName = uploadFolderId ? uploadClassFolders.find(f => f.id === uploadFolderId)?.name : null;
-    setUploadSuccess(`„${file.name}" nahratý do triedy ${uploadClass}${folderName ? ` → „${folderName}"` : ''}!`);
-    setUploadDesc(''); setUploading(false);
+    
+    let path = '';
+    try {
+      const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      path = `${uploadClass}/${safeName}`;
+      const { error: uploadErr } = await supabase.storage.from('class-files').upload(path, file, { cacheControl: '3600', upsert: false });
+      if (uploadErr) { setUploadError('Chyba pri nahrávaní: ' + uploadErr.message); setUploading(false); return; }
+      
+      const { data: { publicUrl } } = supabase.storage.from('class-files').getPublicUrl(path);
+      const { data: inserted, error: dbErr } = await supabase.from('files').insert({
+        uploaded_by: adminProfile.id, class: uploadClass, file_name: path,
+        original_name: file.name, file_url: publicUrl, file_type: file.type,
+        file_size: file.size, description: uploadDesc.trim() || null,
+        folder_id: uploadFolderId || null,
+      }).select('*').single();
+      
+      if (dbErr) {
+        // Rollback uploaded file if DB insert fails
+        await supabase.storage.from('class-files').remove([path]);
+        setUploadError('Chyba pri ukladaní: ' + dbErr.message);
+        setUploading(false);
+        return;
+      }
+      
+      if (inserted) setFiles(prev => [{ ...inserted, profiles: { first_name: adminProfile.first_name, last_name: adminProfile.last_name } }, ...prev]);
+      const folderName = uploadFolderId ? uploadClassFolders.find(f => f.id === uploadFolderId)?.name : null;
+      setUploadSuccess(`„${file.name}" nahratý do triedy ${uploadClass}${folderName ? ` → „${folderName}"` : ''}!`);
+      setUploadDesc('');
+    } catch (err) {
+      console.error(err);
+      setUploadError('Nastala neočakávaná chyba pri nahrávaní: ' + err.message);
+    } finally {
+      setUploading(false);
+    }
   }, [uploadClass, uploadDesc, uploadFolderId, uploadClassFolders, adminProfile]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({

@@ -61,24 +61,33 @@ export default function Dashboard() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileLimit, setFileLimit] = useState(20);
   const [hasMoreFiles, setHasMoreFiles] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Otvorí lightbox — vygeneruje signed URL pred zobrazením
   async function openLightbox(file) {
-    const signedUrl = await getSignedUrl(file.file_name, 600);
-    setLightboxFile({ ...file, signedUrl: signedUrl || file.file_url });
+    try {
+      const signedUrl = await getSignedUrl(file.file_name, 600);
+      setLightboxFile({ ...file, signedUrl: signedUrl || file.file_url });
+    } catch (err) {
+      console.error('Error opening lightbox:', err);
+    }
   }
 
   // Stiahne súbor cez signed URL
   async function downloadFile(file) {
-    const url = await getSignedUrl(file.file_name, 120);
-    if (!url) return;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = file.original_name;
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    try {
+      const url = await getSignedUrl(file.file_name, 120);
+      if (!url) return;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.original_name;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Error downloading file:', err);
+    }
   }
 
   const globalSearch = search.trim().length > 0;
@@ -105,35 +114,58 @@ export default function Dashboard() {
   useEffect(() => { loadUser(); }, []);
 
   async function loadUser() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { router.push('/'); return; }
-    const { data: prof } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-    if (!prof || prof.status !== 'approved') { await supabase.auth.signOut(); router.push('/'); return; }
-    if (prof.is_admin) { router.push('/admin'); return; }
-    setProfile(prof);
-    await loadFiles(prof.class);
-    setLoading(false);
+    try {
+      const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
+      if (sessionErr) throw sessionErr;
+      if (!session) { router.push('/'); return; }
+      const { data: prof, error: profErr } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+      if (profErr) throw profErr;
+      if (!prof || prof.status !== 'approved') { await supabase.auth.signOut(); router.push('/'); return; }
+      if (prof.is_admin) { router.push('/admin'); return; }
+      setProfile(prof);
+      await loadFiles(prof.class);
+    } catch (err) {
+      console.error('Error loading user:', err);
+      router.push('/');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function loadFiles(className) {
-    const { data: filesData, count } = await supabase.from('files')
-      .select(`*, profiles(first_name, last_name)`, { count: 'exact' })
-      .eq('class', className).order('created_at', { ascending: false }).range(0, fileLimit - 1);
-    setFiles(filesData || []);
-    setHasMoreFiles((count || 0) > fileLimit);
-    const { data: foldersData } = await supabase.from('folders')
-      .select('*').eq('class', className).order('name', { ascending: true });
-    setFolders(foldersData || []);
+    try {
+      const { data: filesData, count, error: filesErr } = await supabase.from('files')
+        .select(`*, profiles(first_name, last_name)`, { count: 'exact' })
+        .eq('class', className).order('created_at', { ascending: false }).range(0, fileLimit - 1);
+      if (filesErr) throw filesErr;
+      setFiles(filesData || []);
+      setHasMoreFiles((count || 0) > fileLimit);
+      const { data: foldersData, error: foldersErr } = await supabase.from('folders')
+        .select('*').eq('class', className).order('name', { ascending: true });
+      if (foldersErr) throw foldersErr;
+      setFolders(foldersData || []);
+    } catch (err) {
+      console.error('Error loading files:', err);
+    }
   }
 
   async function loadMoreFiles() {
-    const newLimit = fileLimit + 20;
-    setFileLimit(newLimit);
-    const { data: filesData, count } = await supabase.from('files')
-      .select(`*, profiles(first_name, last_name)`, { count: 'exact' })
-      .eq('class', profile.class).order('created_at', { ascending: false }).range(0, newLimit - 1);
-    setFiles(filesData || []);
-    setHasMoreFiles((count || 0) > newLimit);
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const newLimit = fileLimit + 20;
+      const { data: filesData, count, error } = await supabase.from('files')
+        .select(`*, profiles(first_name, last_name)`, { count: 'exact' })
+        .eq('class', profile.class).order('created_at', { ascending: false }).range(0, newLimit - 1);
+      if (error) throw error;
+      setFiles(filesData || []);
+      setHasMoreFiles((count || 0) > newLimit);
+      setFileLimit(newLimit);
+    } catch (err) {
+      console.error('Error loading more files:', err);
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   function navigateToFolder(folder) {
@@ -154,14 +186,19 @@ export default function Dashboard() {
     if (!newFolderName.trim()) return;
     if (folderPath.length >= 3) { setFolderError('Max 3 urovne priecinkov.'); return; }
     setFolderSaving(true); setFolderError('');
-    const { error } = await supabase.from('folders').insert({
-      name: newFolderName.trim(), class: profile.class,
-      parent_id: currentFolder ? currentFolder.id : null, created_by: profile.id,
-    });
-    if (error) { setFolderError('Chyba: ' + error.message); setFolderSaving(false); return; }
-    setNewFolderName(''); setShowCreateFolder(false);
-    await loadFiles(profile.class);
-    setFolderSaving(false);
+    try {
+      const { error } = await supabase.from('folders').insert({
+        name: newFolderName.trim(), class: profile.class,
+        parent_id: currentFolder ? currentFolder.id : null, created_by: profile.id,
+      });
+      if (error) throw error;
+      setNewFolderName(''); setShowCreateFolder(false);
+      await loadFiles(profile.class);
+    } catch (error) {
+      setFolderError('Chyba: ' + error.message);
+    } finally {
+      setFolderSaving(false);
+    }
   }
 
   async function deleteFolder(folder) {
@@ -175,22 +212,28 @@ export default function Dashboard() {
         }
         setLoading(true);
         try {
-          const { data: allFolders } = await supabase.from('folders').select('id, parent_id').eq('class', profile.class);
+          const { data: allFolders, error: foldersErr } = await supabase.from('folders').select('id, parent_id').eq('class', profile.class);
+          if (foldersErr) throw foldersErr;
           const getDescendantIds = (folderId, list) => {
             let ids = [folderId];
             for (const f of list.filter(f => f.parent_id === folderId)) ids = [...ids, ...getDescendantIds(f.id, list)];
             return ids;
           };
           const folderIdsToDelete = getDescendantIds(folder.id, allFolders || []);
-          const { data: filesToDelete } = await supabase.from('files').select('file_name').in('folder_id', folderIdsToDelete);
+          const { data: filesToDelete, error: filesErr } = await supabase.from('files').select('file_name').in('folder_id', folderIdsToDelete);
+          if (filesErr) throw filesErr;
           if (filesToDelete?.length > 0) {
             const fileNames = filesToDelete.map(f => f.file_name);
-            for (let i = 0; i < fileNames.length; i += 100)
-              await supabase.storage.from('class-files').remove(fileNames.slice(i, i + 100));
-            await supabase.from('files').delete().in('folder_id', folderIdsToDelete);
+            for (let i = 0; i < fileNames.length; i += 100) {
+              const { error: storageErr } = await supabase.storage.from('class-files').remove(fileNames.slice(i, i + 100));
+              if (storageErr) throw storageErr;
+            }
+            const { error: dbFilesErr } = await supabase.from('files').delete().in('folder_id', folderIdsToDelete);
+            if (dbFilesErr) throw dbFilesErr;
           }
           const { error: dbErr } = await supabase.from('folders').delete().eq('id', folder.id);
-          if (!dbErr && currentFolder && folderIdsToDelete.includes(currentFolder.id)) {
+          if (dbErr) throw dbErr;
+          if (currentFolder && folderIdsToDelete.includes(currentFolder.id)) {
             const parentFolder = folder.parent_id ? (allFolders || []).find(f => f.id === folder.parent_id) : null;
             navigateToFolder(parentFolder || null);
           }
@@ -210,19 +253,32 @@ export default function Dashboard() {
     if (editPw.length < 6) { setProfileError('Nove heslo musi mat aspon 6 znakov.'); return; }
     if (editPw !== editPwConfirm) { setProfileError('Hesla sa nezhoduju.'); return; }
     setProfileSaving(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    const { error: signInErr } = await supabase.auth.signInWithPassword({ email: session.user.email, password: currentPw });
-    if (signInErr) { setProfileError('Aktualne heslo je nespravne.'); setProfileSaving(false); return; }
-    const { error: pwErr } = await supabase.auth.updateUser({ password: editPw });
-    if (pwErr) { setProfileError('Heslo sa nepodarilo zmenit: ' + pwErr.message); setProfileSaving(false); return; }
-    setCurrentPw(''); setEditPw(''); setEditPwConfirm('');
-    setProfileSuccess('Heslo bolo uspesne zmenene!');
-    setProfileSaving(false);
+    try {
+      const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
+      if (sessionErr) throw sessionErr;
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email: session.user.email, password: currentPw });
+      if (signInErr) { setProfileError('Aktualne heslo je nespravne.'); setProfileSaving(false); return; }
+      const { error: pwErr } = await supabase.auth.updateUser({ password: editPw });
+      if (pwErr) { setProfileError('Heslo sa nepodarilo zmenit: ' + pwErr.message); setProfileSaving(false); return; }
+      setCurrentPw(''); setEditPw(''); setEditPwConfirm('');
+      setProfileSuccess('Heslo bolo uspesne zmenene!');
+    } catch (err) {
+      console.error(err);
+      setProfileError('Nastala neočakávaná chyba.');
+    } finally {
+      setProfileSaving(false);
+    }
   }
 
   async function requestDeletion() {
-    await supabase.from('profiles').update({ deletion_requested: true }).eq('id', profile.id);
-    setDeleteRequestSent(true);
+    try {
+      const { error } = await supabase.from('profiles').update({ deletion_requested: true }).eq('id', profile.id);
+      if (error) throw error;
+      setDeleteRequestSent(true);
+    } catch (err) {
+      console.error(err);
+      askConfirm({ title: 'Chyba', message: 'Nepodarilo sa odoslať žiadosť: ' + err.message, danger: false, onConfirm: () => {} });
+    }
   }
 
   function openProfile() {
@@ -842,10 +898,10 @@ export default function Dashboard() {
           {/* Nacitat viac */}
           {!globalSearch && hasMoreFiles && (
             <div className="text-center pt-2">
-              <button onClick={loadMoreFiles}
-                className="px-6 py-2.5 rounded-2xl text-sm font-semibold transition-all"
+              <button onClick={loadMoreFiles} disabled={loadingMore}
+                className="px-6 py-2.5 rounded-2xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: 'var(--surface-2)', color: 'var(--accent-link)', border: '1px solid var(--border)' }}>
-                Nacitat viac suborov
+                {loadingMore ? 'Nacitavam...' : 'Nacitat viac suborov'}
               </button>
             </div>
           )}

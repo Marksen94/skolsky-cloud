@@ -19,16 +19,22 @@ export default function ForgotPasswordPage() {
     setError('');
     setSuccessMsg('');
 
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `https://gdusecovce-cloud.vercel.app/auth/callback?next=/update-password`,
-    });
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `https://gdusecovce-cloud.vercel.app/auth/callback?next=/update-password`,
+      });
 
-    if (resetError) {
-      setError('Chyba: ' + resetError.message);
-    } else {
-      setSuccessMsg(`Email s odkazom na resetovanie hesla bol odoslaný na adresu ${email}. Skontrolujte si schránku (vrátane spamu).`);
+      if (resetError) {
+        setError('Chyba: ' + resetError.message);
+      } else {
+        setSuccessMsg(`Email s odkazom na resetovanie hesla bol odoslaný na adresu ${email}. Skontrolujte si schránku (vrátane spamu).`);
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Nastala neočakávaná chyba pri resetovaní hesla.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (
