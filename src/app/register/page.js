@@ -106,7 +106,7 @@ export default function RegisterPage() {
           )}
 
           <form onSubmit={handleRegister} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Meno *</label>
                 <input name="firstName" type="text" className="input-field" placeholder="Ján"

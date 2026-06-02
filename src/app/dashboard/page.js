@@ -711,7 +711,7 @@ export default function Dashboard() {
 
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
         <div className="animate-slide-up">
-          <h2 className="text-3xl font-bold" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>
+          <h2 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>
             Trieda {profile?.class}
           </h2>
           <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>{files.length} materialov zdielanych vasou triedou</p>

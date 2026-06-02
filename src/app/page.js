@@ -201,7 +201,7 @@ export default function LoginPage() {
             <div className="h-1.5 w-full"
               style={{ background: 'linear-gradient(90deg, #0D1F3C 0%, #1A3A6B 40%, #C8200A 100%)' }} />
 
-            <div className="p-9">
+            <div className="p-6 sm:p-9">
               {/* Hlavička */}
               <div className="mb-8">
                 <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4 p-1.5"
@@ -287,7 +287,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="px-9 pb-6">
+            <div className="px-6 sm:px-9 pb-6">
               <p className="text-center text-xs" style={{ color: 'var(--text-dim)' }}>
                 Po registrácii čakáš na schválenie správcu školy.
               </p>

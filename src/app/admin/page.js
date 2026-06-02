@@ -460,11 +460,11 @@ export default function AdminPage() {
         <div className="flex flex-wrap gap-1 mb-6 rounded-3xl p-1.5 shadow-card w-fit animate-fade-in" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           {TABS.map(t => (
             <button key={t} onClick={() => setTab(t)}
-              className={`px-5 py-2 rounded-2xl text-sm font-semibold transition-all duration-200 ${tab === t ? 'bg-gradient-to-r from-school-navy to-school-blue text-white shadow-md' : 'hover:opacity-80'}`}
+              className={`px-3 sm:px-5 py-2 rounded-2xl text-xs sm:text-sm font-semibold transition-all duration-200 ${tab === t ? 'bg-gradient-to-r from-school-navy to-school-blue text-white shadow-md' : 'hover:opacity-80'}`}
               style={tab !== t ? { color: 'var(--text-muted)' } : {}}>
               {t}
               {t === 'Žiadosti' && (pending.length + deletionRequests.length) > 0 && (
-                <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">{pending.length + deletionRequests.length}</span>
+                <span className="ml-2 bg-red-500 text-white text-[10px] sm:text-xs rounded-full px-1.5 py-0.5">{pending.length + deletionRequests.length}</span>
               )}
             </button>
           ))}
