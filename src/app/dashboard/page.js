@@ -23,13 +23,14 @@ export default function Dashboard() {
   const userMenuBtnRef = useRef(null);
   function getMenuPos() {
     const btn = userMenuBtnRef.current;
-    if (!btn) return { top: 72, right: 16 };
+    if (!btn) return { top: 72, left: 8 };
     const r = btn.getBoundingClientRect();
     const menuWidth = 200;
-    const rightVal = window.innerWidth - r.right;
-    // Zabráni menu vypadnúť mimo ľavý okraj obrazovky
-    const clampedRight = Math.min(rightVal, window.innerWidth - menuWidth - 8);
-    return { top: r.bottom + 8, right: Math.max(8, clampedRight) };
+    // Zarovná pravý okraj menu s pravým okrajom tlačidla, potom clampuje do viewport
+    let left = r.right - menuWidth;
+    left = Math.max(8, left);                             // nesmie ísť za ľavý okraj
+    left = Math.min(left, window.innerWidth - menuWidth - 8); // nesmie ísť za pravý okraj
+    return { top: r.bottom + 8, left };
   }
   const [showProfile, setShowProfile] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -738,7 +739,7 @@ export default function Dashboard() {
             placeholder="Popis suboru (napr. Matematika - vzorce) - volitelne"
             value={description} onChange={e => setDescription(e.target.value)}
             disabled={uploading} maxLength={300} />
-          <div {...getRootProps()} className={`border-2 border-dashed rounded-2xl p-5 sm:p-12 text-center cursor-pointer transition-all duration-300
+          <div {...getRootProps()} className={`border-2 border-dashed rounded-2xl p-4 sm:p-8 text-center cursor-pointer transition-all duration-300
             ${isDragActive ? 'scale-[1.02]' : ''} ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}
             style={{ borderColor: isDragActive ? 'var(--accent-link)' : 'var(--border)', background: isDragActive ? 'rgba(26,58,107,0.1)' : 'transparent' }}>
             <input {...getInputProps()} />

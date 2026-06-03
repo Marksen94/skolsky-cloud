@@ -658,7 +658,7 @@ export default function AdminPage() {
                       )}
                     </div>
                   )}
-                  <div {...getRootProps()} className={`flex-1 border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-200 ${!uploadClass ? 'cursor-not-allowed opacity-50' : isDragActive ? 'scale-[1.01] cursor-pointer' : 'cursor-pointer'} ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  <div {...getRootProps()} className={`flex-1 border-2 border-dashed rounded-2xl p-4 sm:p-8 text-center transition-all duration-200 ${!uploadClass ? 'cursor-not-allowed opacity-50' : isDragActive ? 'scale-[1.01] cursor-pointer' : 'cursor-pointer'} ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     style={{ borderColor: !uploadClass ? 'var(--border)' : isDragActive ? 'var(--accent-link)' : 'var(--border)', background: !uploadClass ? 'var(--surface-3)' : isDragActive ? 'rgba(26,58,107,0.08)' : 'var(--surface-2)', minHeight: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <input {...getInputProps()} />
                     {uploading ? (
@@ -753,15 +753,15 @@ export default function AdminPage() {
                   </select>
                 </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="overflow-x-auto -mx-6 px-6">
+                <table className="w-full text-sm min-w-[440px]">
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th className="text-left py-2 px-3 font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Súbor</th>
                       <th className="text-left py-2 px-3 font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Nahrál</th>
                       <th className="text-left py-2 px-3 font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Trieda</th>
                       <th className="hidden sm:table-cell text-left py-2 px-3 font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Veľkosť</th>
-                      <th className="hidden sm:table-cell text-left py-2 px-3 font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Dátum</th>
+                      <th className="hidden md:table-cell text-left py-2 px-3 font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Dátum</th>
                       <th className="text-left py-2 px-3"></th>
                     </tr>
                   </thead>
@@ -782,7 +782,7 @@ export default function AdminPage() {
                         <td className="py-3 px-3 text-sm" style={{ color: 'var(--text-muted)' }}>{file.profiles?.first_name} {file.profiles?.last_name}</td>
                         <td className="py-3 px-3"><span className="bg-school-blue text-white text-xs px-2 py-0.5 rounded-full font-medium">{file.class}</span></td>
                         <td className="hidden sm:table-cell py-3 px-3 text-xs" style={{ color: 'var(--text-muted)' }}>{file.file_size ? formatFileSize(file.file_size) : '—'}</td>
-                        <td className="hidden sm:table-cell py-3 px-3 text-xs" style={{ color: 'var(--text-muted)' }}>{new Date(file.created_at).toLocaleDateString('sk-SK')}</td>
+                        <td className="hidden md:table-cell py-3 px-3 text-xs" style={{ color: 'var(--text-muted)' }}>{new Date(file.created_at).toLocaleDateString('sk-SK')}</td>
                         <td className="py-3 px-3">
                           <div className="flex items-center justify-end gap-2">
                             <button onClick={async () => {
