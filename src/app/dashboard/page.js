@@ -725,7 +725,7 @@ export default function Dashboard() {
           <StatCard icon={<Clock size={20} style={{ color: '#a855f7' }} />} title="Velkost" value={files.length > 0 ? formatFileSize(files.reduce((sum, f) => sum + (f.file_size || 0), 0)) : '0 B'} subtitle="vsetky subory spolu" color="purple" />
         </div>
 
-        <div className="card shadow-card hover:shadow-lg transition-shadow animate-slide-up">
+        <div className="card shadow-card hover:shadow-lg active:shadow-lg active:scale-[0.995] transition-all duration-150 animate-slide-up">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
               <CloudUpload size={18} style={{ color: 'var(--accent-link)' }} />
@@ -929,14 +929,14 @@ export default function Dashboard() {
 function StatCard({ icon, title, value, subtitle, color }) {
   const colorMap = { blue: 'rgba(26,58,107,0.15)', amber: 'rgba(180,100,0,0.12)', green: 'rgba(5,150,105,0.12)', purple: 'rgba(109,40,217,0.12)' };
   return (
-    <article className="rounded-3xl border p-4 shadow-card hover:shadow-card-hover transition-all duration-200"
+    <article className="rounded-3xl border p-4 shadow-card hover:shadow-card-hover active:shadow-card-hover active:scale-[0.98] transition-all duration-150"
       style={{ background: colorMap[color] || colorMap.blue, borderColor: 'var(--border)' }}>
       <div className="flex items-center justify-between mb-3">
         <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm" style={{ background: 'var(--surface)' }}>{icon}</div>
         <span className="text-[11px] uppercase tracking-[0.18em]" style={{ color: 'var(--text-muted)' }}>{title}</span>
       </div>
-      <p className="text-2xl font-bold" style={{ color: 'var(--text)' }}>{value}</p>
-      <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>
+      <p className="text-xl sm:text-2xl font-bold truncate" style={{ color: 'var(--text)' }}>{value}</p>
+      <p className="text-xs mt-1 truncate" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>
     </article>
   );
 }
