@@ -17,7 +17,8 @@ export default function Dashboard() {
   const [search, setSearch] = useState('');
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
-  const [description, setDescription] = useState('');
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const userMenuRef = useRef(null);
   const userMenuBtnRef = useRef(null);
@@ -63,7 +64,7 @@ export default function Dashboard() {
   // Fix 10 - mobile menu
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [fileLimit, setFileLimit] = useState(20);
   const [hasMoreFiles, setHasMoreFiles] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -312,18 +313,19 @@ export default function Dashboard() {
       return;
     }
     if (accepted.length === 0) return;
-    setSelectedFile(accepted[0]);
+    setSelectedFiles(prev => {
+      const existingNames = prev.map(f => f.name);
+      const newFiles = accepted.filter(f => !existingNames.includes(f.name));
+      return [...prev, ...newFiles];
+    });
   }, []);
 
-  // Fix 4 — useCallback so správnymi závislosťami (žiadny stale closure)
-  // Fix 5 — rate limit: max 20 súborov za deň na profil (client-side check)
-  // Fix 6 — sanitácia description pred uložením
   const handleUpload = useCallback(async () => {
-    if (!selectedFile || uploading) return;
+    if (selectedFiles.length === 0 || uploading) return;
     setUploadError(''); setUploadSuccess('');
     setUploading(true);
 
-    // Fix 5 — klientská kontrola denného limitu
+    // Klientská kontrola denného limitu
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const { count: todayCount, error: countErr } = await supabase
@@ -331,53 +333,56 @@ export default function Dashboard() {
       .select('id', { count: 'exact', head: true })
       .eq('uploaded_by', profile.id)
       .gte('created_at', startOfDay.toISOString());
-    if (!countErr && todayCount >= 20) {
-      setUploadError('Dosiahol si denný limit 20 súborov. Skús to znova zajtra.');
+    if (!countErr && todayCount + selectedFiles.length > 20) {
+      setUploadError(`Denný limit 20 súborov by bol prekročený. Môžeš nahrať ešte ${Math.max(0, 20 - todayCount)} súborov.`);
       setUploading(false);
       return;
     }
 
-    const file = selectedFile;
-    // Fix 6 — sanitácia description
-    const safeDesc = sanitizeText(description, 300);
+    let successCount = 0;
+    const errors = [];
 
-    const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-    const path = `${profile.class}/${safeName}`;
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
+      setUploadProgress({ current: i + 1, total: selectedFiles.length });
 
-    const { error: uploadErr } = await supabase.storage
-      .from('class-files')
-      .upload(path, file, { cacheControl: '3600', upsert: false });
-    if (uploadErr) {
-      setUploadError('Chyba pri nahravani: ' + uploadErr.message);
-      setUploading(false); setSelectedFile(null); return;
+      const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const path = `${profile.class}/${safeName}`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from('class-files')
+        .upload(path, file, { cacheControl: '3600', upsert: false });
+      if (uploadErr) { errors.push(`${file.name}: ${uploadErr.message}`); continue; }
+
+      const { data: inserted, error: dbErr } = await supabase.from('files').insert({
+        uploaded_by: profile.id,
+        class: profile.class,
+        file_name: path,
+        original_name: file.name,
+        file_url: path,
+        file_type: file.type,
+        file_size: file.size,
+        description: null,
+        folder_id: currentFolder ? currentFolder.id : null,
+      }).select(`*, profiles(first_name, last_name)`).single();
+
+      if (dbErr) {
+        await supabase.storage.from('class-files').remove([path]);
+        errors.push(`${file.name}: ${dbErr.message}`);
+        continue;
+      }
+
+      if (inserted) setFiles(prev => [inserted, ...prev]);
+      successCount++;
     }
 
-    // Privátny bucket — ukladáme cestu, nie public URL
-    const { data: inserted, error: dbErr } = await supabase.from('files').insert({
-      uploaded_by: profile.id,
-      class: profile.class,
-      file_name: path,
-      original_name: file.name,
-      file_url: path,          // cesta do storage (signed URL sa generuje pri stiahnutí)
-      file_type: file.type,
-      file_size: file.size,
-      description: safeDesc,
-      folder_id: currentFolder ? currentFolder.id : null,
-    }).select(`*, profiles(first_name, last_name)`).single();
-
-    if (dbErr) {
-      // Rollback — zmaž súbor zo storage ak DB zlyhal
-      await supabase.storage.from('class-files').remove([path]);
-      setUploadError('Chyba pri ukladani: ' + dbErr.message);
-      setUploading(false); setSelectedFile(null); return;
-    }
-
-    if (inserted) setFiles(prev => [inserted, ...prev]);
-    setUploadSuccess(`"${file.name}" bol uspesne nahraty!`);
-    setDescription('');
-    setSelectedFile(null);
+    setSelectedFiles([]);
     setUploading(false);
-  }, [profile, description, currentFolder, selectedFile, uploading]);
+    setUploadProgress({ current: 0, total: 0 });
+
+    if (errors.length > 0) setUploadError('Chyba: ' + errors.join(' | '));
+    if (successCount > 0) setUploadSuccess(successCount === 1 ? 'Súbor bol úspešne nahraný!' : `${successCount} súborov bolo úspešne nahraných!`);
+  }, [profile, currentFolder, selectedFiles, uploading]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -390,7 +395,7 @@ export default function Dashboard() {
       'application/vnd.ms-excel': ['.xls'],
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
     },
-    maxSize: MAX_FILE_SIZE, multiple: false, disabled: uploading,
+    maxSize: MAX_FILE_SIZE, multiple: true, disabled: uploading,
   });
 
   function deleteFile(file) {
@@ -735,10 +740,6 @@ export default function Dashboard() {
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>PDF, obrazky, PowerPoint, Word, Excel - max 50 MB</p>
             </div>
           </div>
-          <input type="text" className="input-field text-sm mb-4"
-            placeholder="Popis suboru (napr. Matematika - vzorce) - volitelne"
-            value={description} onChange={e => setDescription(e.target.value)}
-            disabled={uploading} maxLength={300} />
           <div {...getRootProps()} className={`border-2 border-dashed rounded-2xl p-4 sm:p-8 text-center cursor-pointer transition-all duration-300
             ${isDragActive ? 'scale-[1.02]' : ''} ${uploading ? 'opacity-60 cursor-not-allowed' : ''}`}
             style={{ borderColor: isDragActive ? 'var(--accent-link)' : 'var(--border)', background: isDragActive ? 'rgba(26,58,107,0.1)' : 'transparent' }}>
@@ -748,29 +749,30 @@ export default function Dashboard() {
                 <div className="w-12 h-12 rounded-full animate-spin mx-auto mb-4"
                   style={{ borderWidth: '4px', borderStyle: 'solid', borderColor: 'var(--accent-link)', borderTopColor: 'transparent' }} />
                 <p className="font-semibold text-sm" style={{ color: 'var(--accent-link)' }}>
-                  {selectedFile ? `Nahravam "${selectedFile.name}"...` : 'Nahravom subor...'}
+                  {uploadProgress.total > 1 ? `Nahrávam ${uploadProgress.current} / ${uploadProgress.total}...` : 'Nahrávam súbor...'}
                 </p>
-                {selectedFile && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{formatFileSize(selectedFile.size)}</p>}
               </div>
-            ) : selectedFile ? (
-              <div className="flex flex-col items-center" onClick={e => e.stopPropagation()}>
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl" style={{ background: 'var(--surface-2)' }}>
-                  {getFileIcon(selectedFile.type)}
+            ) : selectedFiles.length > 0 ? (
+              <div className="w-full" onClick={e => e.stopPropagation()}>
+                <div className="flex flex-col gap-2 max-h-52 overflow-y-auto pr-1">
+                  {selectedFiles.map((f, i) => (
+                    <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background: 'var(--surface-2)' }}>
+                      <span className="text-lg flex-shrink-0">{getFileIcon(f.type)}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-xs truncate" style={{ color: 'var(--text)' }}>{f.name}</p>
+                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatFileSize(f.size)}</p>
+                      </div>
+                      <button onClick={e => { e.stopPropagation(); setSelectedFiles(prev => prev.filter((_, idx) => idx !== i)); setUploadError(''); }}
+                        className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-colors"
+                        style={{ color: 'var(--text-muted)' }}>
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-                <p className="font-semibold text-sm text-center line-clamp-2" style={{ color: 'var(--text)' }}>{selectedFile.name}</p>
-                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{formatFileSize(selectedFile.size)}</p>
-                <div className="flex items-center gap-2 mt-4">
-                  <button onClick={e => { e.stopPropagation(); setSelectedFile(null); setUploadError(''); }}
-                    className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg"
-                    style={{ background: 'rgba(200,32,10,0.1)', color: '#ef4444', border: '1px solid rgba(200,32,10,0.2)' }}>
-                    <X size={12} /> Zrusit
-                  </button>
-                  <button onClick={e => { e.stopPropagation(); handleUpload(); }}
-                    className="flex items-center gap-1.5 text-xs px-4 py-1.5 rounded-lg font-semibold text-white"
-                    style={{ background: 'var(--accent-link)' }}>
-                    <Upload size={12} /> Nahrat subor
-                  </button>
-                </div>
+                <p className="text-xs text-center mt-3" style={{ color: 'var(--text-dim)' }}>
+                  Klikni alebo pretiahni ďalšie súbory
+                </p>
               </div>
             ) : isDragActive ? (
               <div className="flex flex-col items-center">
@@ -787,6 +789,21 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+          {selectedFiles.length > 0 && !uploading && (
+            <div className="mt-4 flex items-center gap-3">
+              <button onClick={() => { setSelectedFiles([]); setUploadError(''); }}
+                className="flex items-center gap-1.5 text-sm px-4 py-2.5 rounded-xl font-semibold flex-shrink-0"
+                style={{ background: 'rgba(200,32,10,0.08)', color: '#ef4444', border: '1px solid rgba(200,32,10,0.2)' }}>
+                <X size={14} /> Zrušiť
+              </button>
+              <button onClick={handleUpload}
+                className="flex items-center justify-center gap-2 text-sm px-6 py-2.5 rounded-xl font-semibold text-white flex-1"
+                style={{ background: 'var(--accent-link)' }}>
+                <Upload size={15} />
+                Odoslať {selectedFiles.length > 1 ? `${selectedFiles.length} súborov` : 'súbor'}
+              </button>
+            </div>
+          )}
           {uploadError && <div className="mt-3 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm" style={{ background: 'rgba(200,32,10,0.1)', color: '#ef4444', border: '1px solid rgba(200,32,10,0.25)' }}><AlertCircle size={15} /> {uploadError}</div>}
           {uploadSuccess && <div className="mt-3 px-4 py-2.5 rounded-xl text-sm" style={{ background: 'rgba(5,150,105,0.1)', color: '#10b981', border: '1px solid rgba(5,150,105,0.25)' }}>{uploadSuccess}</div>}
         </div>
