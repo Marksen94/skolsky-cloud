@@ -21,7 +21,7 @@ export default function ForgotPasswordPage() {
 
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `https://gdusecovce-cloud.vercel.app/auth/callback?next=/update-password`,
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/auth/callback?next=/update-password`,
       });
 
       if (resetError) {
