@@ -56,8 +56,42 @@ export default function AdminPage() {
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
 
-  // Správa priečinkov
-  const [adminCurrentFolder, setAdminCurrentFolder] = useState(null);
+  // Export všetkých súborov ako ZIP
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+
+  async function handleExportAll() {
+    setExporting(true);
+    setExportError('');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/admin/export-archive', {
+        headers: { 'Authorization': `Bearer ${session?.access_token}` },
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setExportError(d.error || 'Export zlyhal.');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `school-cloud-export-${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportError('Neočakávaná chyba: ' + err.message);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  // Zisti či je 31. august (zvýraznenie export tlačidla)
+  const isAugust31 = (() => { const d = new Date(); return d.getMonth() === 7 && d.getDate() === 31; })();
+
   const [adminFolderPath, setAdminFolderPath] = useState([]);
   const [showAdminCreateFolder, setShowAdminCreateFolder] = useState(false);
   const [newAdminFolderName, setNewAdminFolderName] = useState('');
@@ -596,6 +630,27 @@ export default function AdminPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8">
+        {/* Export tlačidlo — vždy viditeľné, 31.8. červené */}
+        <div className="mb-5 animate-fade-in flex items-center gap-3 flex-wrap">
+          <button
+            onClick={handleExportAll}
+            disabled={exporting}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-semibold text-sm transition-all duration-200 shadow-sm"
+            style={isAugust31
+              ? { background: 'linear-gradient(135deg,#dc2626,#ef4444)', color: 'white', border: '1px solid rgba(220,38,38,0.5)', boxShadow: '0 0 0 3px rgba(220,38,38,0.2)' }
+              : { background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }
+            }
+          >
+            <Download size={15} style={{ color: isAugust31 ? 'white' : 'var(--accent-link)' }} />
+            {exporting ? 'Exportujem...' : isAugust31 ? '⚠️ Stiahnuť všetko ako ZIP (dnes sa maže!)' : 'Stiahnuť všetky súbory ako ZIP'}
+          </button>
+          {exportError && (
+            <span className="text-sm flex items-center gap-1.5" style={{ color: '#ef4444' }}>
+              <AlertCircle size={14} /> {exportError}
+            </span>
+          )}
+        </div>
+
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8 animate-slide-up">
           <StatCard color="amber" icon={<Clock size={18} />} label="Čakajúce žiadosti" value={pending.length + deletionRequests.length} hint="Na schválenie" />

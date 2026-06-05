@@ -1,6 +1,7 @@
 import './globals.css';
 import { ThemeProvider } from '@/lib/ThemeContext';
 import CookieBanner from '@/app/components/CookieBanner';
+import SummerNotification from '@/app/components/SummerNotification';
 
 export const metadata = {
   title: 'Spojená škola Kollárova 17, Sečovce – Cloud pre žiakov',
@@ -34,6 +35,7 @@ export default function RootLayout({ children }) {
       <body>
         <ThemeProvider>
           {children}
+          <SummerNotification />
           <CookieBanner />
         </ThemeProvider>
       </body>
