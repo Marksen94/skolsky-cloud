@@ -98,6 +98,8 @@ export default function AdminPage() {
   const [adminFolderSaving, setAdminFolderSaving] = useState(false);
   const [adminFolderError, setAdminFolderError] = useState('');
 
+  const [adminCurrentFolder, setAdminCurrentFolder] = useState(null);
+
   useEffect(() => {
     checkAdmin();
     return () => { mountedRef.current = false; };
@@ -642,7 +644,7 @@ export default function AdminPage() {
             }
           >
             <Download size={15} style={{ color: isAugust31 ? 'white' : 'var(--accent-link)' }} />
-            {exporting ? 'Exportujem...' : isAugust31 ? '⚠️ Stiahnuť všetko ako ZIP (dnes sa maže!)' : 'Stiahnuť všetky súbory ako ZIP'}
+          {exporting ? 'Exportujem...' : isAugust31 ? '⚠️ Stiahnuť všetko ako ZIP (dnes sa maže!)' : 'Stiahnuť všetky súbory ako ZIP'}
           </button>
           {exportError && (
             <span className="text-sm flex items-center gap-1.5" style={{ color: '#ef4444' }}>

@@ -75,7 +75,7 @@ export default function SummerNotification() {
               ? '⚠️ Dnes je posledný deň — 31. august!'
               : '⚠️ Upozornenie: koniec školského roka'}
           </p>
-          <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs mt-0.5 leading-relaxed summer-notice-text" style={{ color: 'var(--text-muted)' }}>
             {isLastDay
               ? 'Zajtra (1. septembra) budú všetky súbory na cloude vymazané. Stiahni si dôležité materiály!'
               : 'Všetky súbory na cloude budú vymazané 1. septembra. Do konca augusta si stiahni dôležité materiály.'}

@@ -168,13 +168,20 @@ select.input-field {
   color: #E8F0FB;
 }
 
+/* Padding na mobile — menej zbytočného medzery */
 .card {
   border-radius: 1rem;
-  padding: 24px;
+  padding: 16px;
   background: var(--surface);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-card);
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+@media (min-width: 640px) {
+  .card {
+    padding: 24px;
+  }
 }
 
 .card:hover {
@@ -276,9 +283,16 @@ select.input-field {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
-  background: rgba(5, 150, 105, 0.12);
+  background: rgba(5, 150, 105, 0.15);
   color: #059669;
-  border: 1px solid rgba(5, 150, 105, 0.25);
+  border: 1px solid rgba(5, 150, 105, 0.35);
+}
+
+/* Tmavý režim — badge farby musia byť výraznejšie */
+.dark .badge-approved {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.4);
 }
 
 .badge-rejected {
@@ -288,9 +302,15 @@ select.input-field {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
-  background: rgba(220, 38, 38, 0.1);
+  background: rgba(220, 38, 38, 0.12);
   color: #dc2626;
-  border: 1px solid rgba(220, 38, 38, 0.2);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+}
+
+.dark .badge-rejected {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.4);
 }
 
 .badge-pending {
@@ -300,9 +320,15 @@ select.input-field {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
-  background: rgba(251, 191, 36, 0.12);
+  background: rgba(251, 191, 36, 0.15);
   color: #d97706;
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.dark .badge-pending {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.45);
 }
 
 .theme-toggle {
@@ -336,6 +362,48 @@ select.input-field {
   background: rgba(255, 255, 255, 0.2);
   color: white;
   transform: scale(1.05);
+}
+
+/* Tlačidlá — tap target min 44px na mobile */
+@media (max-width: 639px) {
+  .btn-success, .btn-danger {
+    padding: 10px 18px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+
+  .btn-primary {
+    min-height: 44px;
+  }
+
+  /* Tabuľky — horizontálny scroll bez orezania */
+  .card .overflow-x-auto {
+    margin-left: -16px;
+    margin-right: -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+/* Modrý accent — lepšia viditeľnosť v tmavom režime */
+.dark .btn-primary {
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 60%, #3b82f6 100%);
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+}
+
+.dark .btn-primary:hover:not(:disabled) {
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.5);
+}
+
+/* SummerNotification — lepší kontrast textu v oboch režimoch */
+.dark .summer-notice-text {
+  color: rgba(220, 240, 255, 0.9);
+}
+
+/* file-card hover — výraznejší v tmavom */
+.dark .file-card:hover {
+  border-color: rgba(110, 170, 255, 0.25);
+  box-shadow: var(--shadow-card-hover);
 }
 
 .school-header {
