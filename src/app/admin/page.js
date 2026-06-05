@@ -8,7 +8,7 @@ import { useDropzone } from 'react-dropzone';
 import {
   Users, FileText, CheckCircle, XCircle, Trash2, LogOut, Shield, Clock,
   Search, Filter, Download, CloudUpload, AlertCircle, Folder,
-  FolderOpen, X, ChevronRight, FolderPlus,
+  FolderOpen, X, ChevronRight, FolderPlus, KeyRound, ChevronDown, Eye, EyeOff,
 } from 'lucide-react';
 import ThemeToggle from '@/app/components/ThemeToggle';
 
@@ -29,11 +29,23 @@ export default function AdminPage() {
   const [fileSearch, setFileSearch] = useState('');
   const [fileClassFilter, setFileClassFilter] = useState('');
 
-  // Fix 5 — vlastný confirm modal
   const [confirmModal, setConfirmModal] = useState(null);
   function askConfirm({ title, message, danger = true, onConfirm }) {
     setConfirmModal({ title, message, danger, onConfirm });
   }
+
+  // Admin profil modal
+  const [showProfile, setShowProfile] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [newPwConfirm, setNewPwConfirm] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+  const userMenuRef = useRef(null);
+  const userMenuBtnRef = useRef(null);
 
   // Upload
   const [uploadClass, setUploadClass] = useState('');
@@ -72,15 +84,47 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    if (confirmModal) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
+    if (!showUserMenu) return;
+    function handleClick(e) {
+      if (
+        userMenuRef.current && !userMenuRef.current.contains(e.target) &&
+        userMenuBtnRef.current && !userMenuBtnRef.current.contains(e.target)
+      ) setShowUserMenu(false);
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [confirmModal]);
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showUserMenu]);
+
+  async function saveAdminPassword(e) {
+    e.preventDefault();
+    setProfileError(''); setProfileSuccess('');
+    if (!currentPw) { setProfileError('Zadaj aktuálne heslo.'); return; }
+    if (!newPw) { setProfileError('Zadaj nové heslo.'); return; }
+    if (newPw.length < 6) { setProfileError('Nové heslo musí mať aspoň 6 znakov.'); return; }
+    if (newPw !== newPwConfirm) { setProfileError('Heslá sa nezhodujú.'); return; }
+    setProfileSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.email) { setProfileError('Relácia vypršala. Prihlás sa znova.'); return; }
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email: session.user.email, password: currentPw });
+      if (signInErr) { setProfileError('Aktuálne heslo je nesprávne.'); return; }
+      const { error: pwErr } = await supabase.auth.updateUser({ password: newPw });
+      if (pwErr) { setProfileError('Heslo sa nepodarilo zmeniť: ' + pwErr.message); return; }
+      setCurrentPw(''); setNewPw(''); setNewPwConfirm('');
+      setProfileSuccess('Heslo bolo úspešne zmenené!');
+    } catch (err) {
+      setProfileError('Nastala neočakávaná chyba.');
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  useEffect(() => {
+    const isOverlayOpen = !!(showProfile || confirmModal);
+    document.body.style.overflow = isOverlayOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [showProfile, confirmModal]);
+
 
   async function checkAdmin() {
     try {
@@ -422,7 +466,67 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
 
-      {/* Fix 5 — Vlastný confirm modal */}
+      {/* Profil modal — zmena hesla admina */}
+      {showProfile && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" style={{ background: 'var(--overlay)' }}>
+          <div className="rounded-3xl shadow-2xl w-full max-w-md p-6 relative animate-slide-up" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <button onClick={() => { setShowProfile(false); setProfileError(''); setProfileSuccess(''); }}
+              className="absolute top-4 right-4 w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
+              <X size={16} style={{ color: 'var(--text-muted)' }} />
+            </button>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
+                <KeyRound size={22} style={{ color: 'var(--accent-link)' }} />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>Zmena hesla</h2>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{adminProfile?.first_name} {adminProfile?.last_name} — administrátor</p>
+              </div>
+            </div>
+            <form onSubmit={saveAdminPassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Aktuálne heslo</label>
+                <div className="relative">
+                  <input type={showPw ? 'text' : 'password'} className="input-field pr-10"
+                    autoComplete="current-password" placeholder="vaše aktuálne heslo"
+                    value={currentPw} onChange={e => setCurrentPw(e.target.value)} required />
+                  <button type="button" onClick={() => setShowPw(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
+                    {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Nové heslo</label>
+                <input type={showPw ? 'text' : 'password'} className="input-field"
+                  autoComplete="new-password" placeholder="min. 6 znakov"
+                  value={newPw} onChange={e => setNewPw(e.target.value)} required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Zopakuj nové heslo</label>
+                <input type={showPw ? 'text' : 'password'} className="input-field"
+                  autoComplete="new-password" placeholder="zopakuj heslo"
+                  value={newPwConfirm} onChange={e => setNewPwConfirm(e.target.value)} required />
+              </div>
+              {profileError && (
+                <div className="px-3 py-2.5 rounded-xl text-sm flex items-center gap-2" style={{ background: 'rgba(200,32,10,0.1)', color: '#ef4444', border: '1px solid rgba(200,32,10,0.25)' }}>
+                  <AlertCircle size={14} /> {profileError}
+                </div>
+              )}
+              {profileSuccess && (
+                <div className="px-3 py-2.5 rounded-xl text-sm flex items-center gap-2" style={{ background: 'rgba(5,150,105,0.1)', color: '#10b981', border: '1px solid rgba(5,150,105,0.25)' }}>
+                  <CheckCircle size={14} /> {profileSuccess}
+                </div>
+              )}
+              <button type="submit" disabled={profileSaving} className="btn-primary w-full flex items-center justify-center gap-2">
+                {profileSaving ? 'Ukladám...' : 'Zmeniť heslo'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm modal */}
       {confirmModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" style={{ background: 'var(--overlay)' }}>
           <div className="rounded-3xl shadow-2xl w-full max-w-sm p-6 animate-slide-up" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
@@ -462,7 +566,26 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
-            <span className="text-blue-200 text-sm hidden sm:block font-medium">{adminProfile?.first_name} {adminProfile?.last_name}</span>
+            <div className="relative hidden sm:block">
+              <button ref={userMenuBtnRef} onClick={() => setShowUserMenu(v => !v)}
+                className="flex items-center gap-2 rounded-xl px-3 py-1.5 transition-colors"
+                style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)' }}>
+                <span className="text-white text-sm font-medium">{adminProfile?.first_name} {adminProfile?.last_name}</span>
+                <ChevronDown size={12} className="text-blue-300" />
+              </button>
+              {showUserMenu && (
+                <div ref={userMenuRef} className="absolute right-0 top-full mt-2 z-50 rounded-2xl shadow-2xl py-1.5 min-w-[180px] animate-fade-in"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                  <button onClick={() => { setShowUserMenu(false); setCurrentPw(''); setNewPw(''); setNewPwConfirm(''); setProfileError(''); setProfileSuccess(''); setShowProfile(true); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-left transition-colors"
+                    style={{ color: 'var(--text)' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <KeyRound size={15} style={{ color: 'var(--accent-link)' }} /> Zmena hesla
+                  </button>
+                </div>
+              )}
+            </div>
             <ThemeToggle />
             <button onClick={async () => { await supabase.auth.signOut(); router.push('/'); }}
               className="flex items-center gap-1.5 text-blue-200 hover:text-white transition-colors text-sm">
