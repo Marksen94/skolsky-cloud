@@ -341,7 +341,6 @@ select.input-field {
 .school-header {
   background: linear-gradient(135deg, #0D1F3C 0%, #1A3A6B 50%, #0D1F3C 100%);
   position: relative;
-  overflow: hidden;
   box-shadow: 0 4px 20px rgba(13, 31, 60, 0.2);
 }
 
