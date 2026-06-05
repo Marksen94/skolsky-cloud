@@ -981,7 +981,7 @@ export default function Dashboard() {
 function StatCard({ icon, title, value, subtitle, color }) {
   const colorMap = { blue: 'rgba(26,58,107,0.15)', amber: 'rgba(180,100,0,0.12)', green: 'rgba(5,150,105,0.12)', purple: 'rgba(109,40,217,0.12)' };
   return (
-    <article className="rounded-3xl border p-4 shadow-card hover:shadow-card-hover active:shadow-card-hover active:scale-[0.98] transition-all duration-150"
+    <article className="rounded-3xl border p-4 shadow-card hover:shadow-card-hover transition-all duration-150"
       style={{ background: colorMap[color] || colorMap.blue, borderColor: 'var(--border)' }}>
       <div className="flex items-center justify-between mb-3">
         <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm" style={{ background: 'var(--surface)' }}>{icon}</div>

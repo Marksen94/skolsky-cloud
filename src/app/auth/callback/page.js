@@ -10,18 +10,16 @@ function AuthCallbackContent() {
   const [status, setStatus] = useState('Overujem odkaz...');
 
   useEffect(() => {
-    let t;
+    const timerRef = { id: null };
     const code = searchParams.get('code');
-    // Použijeme ?next= param ak existuje, inak default
     const next = searchParams.get('next') || '/update-password';
 
     if (!code) {
       setStatus('Neplatný odkaz. Presmerovávam...');
-      t = setTimeout(() => router.push('/forgot-password'), 2000);
-      return () => { if (t) clearTimeout(t); };
+      timerRef.id = setTimeout(() => router.push('/forgot-password'), 2000);
+      return () => { clearTimeout(timerRef.id); };
     }
 
-    // Validácia next param — povolíme len interné cesty (začínajú /)  
     const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/update-password';
 
     supabase.auth.exchangeCodeForSession(code)
@@ -29,7 +27,7 @@ function AuthCallbackContent() {
         if (error || !data?.session) {
           console.error('Chyba pri výmene kódu za reláciu:', error);
           setStatus('Odkaz vypršal alebo je neplatný. Presmerovávam...');
-          t = setTimeout(() => router.push('/forgot-password'), 2500);
+          timerRef.id = setTimeout(() => router.push('/forgot-password'), 2500);
           return;
         }
         router.push(safeNext);
@@ -37,10 +35,10 @@ function AuthCallbackContent() {
       .catch((err) => {
         console.error('Unexpected error exchanging code for session:', err);
         setStatus('Nastala neočakávaná chyba. Presmerovávam...');
-        t = setTimeout(() => router.push('/forgot-password'), 2500);
+        timerRef.id = setTimeout(() => router.push('/forgot-password'), 2500);
       });
 
-    return () => { if (t) clearTimeout(t); };
+    return () => { clearTimeout(timerRef.id); };
   }, [router, searchParams]);
 
   return (

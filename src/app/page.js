@@ -261,7 +261,7 @@ export default function LoginPage() {
                       autoComplete="current-password"
                       placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
                     <button type="button" onClick={() => setShowPw(!showPw)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 transition-all hover:scale-110 active:scale-95"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 transition-colors hover:scale-110"
                       style={{ color: 'var(--text-muted)' }}>
                       {showPw ? <EyeOff size={17} /> : <Eye size={17} />}
                     </button>

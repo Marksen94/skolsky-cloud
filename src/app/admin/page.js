@@ -570,7 +570,7 @@ export default function AdminPage() {
 
         {/* ── Žiaci ── */}
         {tab === 'Žiaci' && (
-          <div className="card shadow-card hover:shadow-card-hover active:shadow-card-hover active:scale-[0.995] transition-all duration-150 animate-fade-in">
+          <div className="card shadow-card hover:shadow-card-hover transition-all duration-150 animate-fade-in">
             <div className="flex flex-col sm:flex-row gap-3 mb-5">
               <div className="input-with-icon flex-1">
                 <Search size={15} className="input-icon" />
@@ -641,7 +641,7 @@ export default function AdminPage() {
         {tab === 'Súbory' && (
           <div className="space-y-4 animate-fade-in">
             {/* Nahrávanie + Priečinky v jednej karte */}
-            <div className="card shadow-card hover:shadow-card-hover active:shadow-card-hover active:scale-[0.995] transition-all duration-150">
+            <div className="card shadow-card hover:shadow-card-hover transition-all duration-150">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
                   <CloudUpload size={16} style={{ color: 'var(--accent-link)' }} />
@@ -870,7 +870,7 @@ function StatCard({ icon, label, value, color, hint }) {
   };
   const c = colors[color] || colors.blue;
   return (
-    <article className="rounded-3xl p-5 shadow-card hover:shadow-card-hover active:shadow-card-hover active:scale-[0.98] transition-all duration-150"
+    <article className="rounded-3xl p-5 shadow-card hover:shadow-card-hover transition-all duration-150"
       style={{ background: c.bg, border: `1px solid ${c.border}` }}>
       <div className="flex items-center justify-between mb-3">
         <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm" style={{ background: 'var(--surface)', color: c.icon }}>{icon}</div>
