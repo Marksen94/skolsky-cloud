@@ -207,14 +207,14 @@ export default function Dashboard() {
   }
 
   async function deleteFolder(folder) {
+    if (folder.created_by !== profile.id && !profile.is_admin) {
+      askConfirm({ title: 'Chyba', message: 'Môžeš vymazať iba vlastné priečinky.', danger: false, onConfirm: () => {} });
+      return;
+    }
     askConfirm({
       title: 'Vymazať priečinok?',
       message: `Priečinok "${folder.name}" a všetok obsah bude natrvalo vymazaný.`,
       onConfirm: async () => {
-        if (folder.created_by !== profile.id && !profile.is_admin) {
-          askConfirm({ title: 'Chyba', message: 'Môžeš vymazať iba vlastné priečinky.', danger: false, onConfirm: () => {} });
-          return;
-        }
         setLoading(true);
         try {
           const { data: allFolders, error: foldersErr } = await supabase.from('folders').select('id, parent_id').eq('class', profile.class);
@@ -261,6 +261,7 @@ export default function Dashboard() {
     try {
       const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
       if (sessionErr) throw sessionErr;
+      if (!session?.user?.email) { setProfileError('Relácia vypršala. Prihláste sa znova.'); setProfileSaving(false); return; }
       const { error: signInErr } = await supabase.auth.signInWithPassword({ email: session.user.email, password: currentPw });
       if (signInErr) { setProfileError('Aktualne heslo je nespravne.'); setProfileSaving(false); return; }
       const { error: pwErr } = await supabase.auth.updateUser({ password: editPw });

@@ -22,7 +22,7 @@ export default function LoginPage() {
     supabase.auth.getSession()
       .then(({ data: { session }, error }) => {
         if (error) throw error;
-        if (session) redirectUser(session.user.id);
+        if (session?.user?.id) redirectUser(session.user.id);
       })
       .catch(err => {
         console.error('Error getting session:', err);
@@ -48,6 +48,7 @@ export default function LoginPage() {
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
       if (authError) { setError('Nesprávny email alebo heslo.'); setLoading(false); return; }
+      if (!data?.user?.id) { setError('Prihlásenie zlyhalo. Skús znova.'); setLoading(false); return; }
       const { data: profile, error: profileErr } = await supabase
         .from('profiles').select('status, is_admin').eq('id', data.user.id).single();
       if (profileErr) throw profileErr;
