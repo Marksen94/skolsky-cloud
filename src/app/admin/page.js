@@ -308,7 +308,7 @@ export default function AdminPage() {
             if (deleteFilesErr) throw deleteFilesErr;
             if (mountedRef.current) setFiles(prev => prev.filter(f => !folderIdsToDelete.includes(f.folder_id)));
           }
-          const { error: dbErr } = await supabase.from('folders').delete().eq('id', folder.id);
+          const { error: dbErr } = await supabase.from('folders').delete().in('id', folderIdsToDelete);
           if (dbErr) throw dbErr;
           if (mountedRef.current) {
             setUploadClassFolders(prev => prev.filter(f => !folderIdsToDelete.includes(f.id)));
@@ -329,13 +329,15 @@ export default function AdminPage() {
     setUploadError(''); setUploadSuccess('');
     if (!uploadClass) { setUploadError('Najskôr vyber triedu.'); return; }
     if (rejected.length > 0) {
-      const err = rejected[0].errors[0];
+      const err = rejected[0]?.errors?.[0];
+      if (!err) { setUploadError('Chyba pri nahrávaní súboru.'); return; }
       if (err.code === 'file-too-large') setUploadError('Súbor je príliš veľký. Max 50 MB.');
       else setUploadError('Nepovolený typ súboru.');
       return;
     }
     if (accepted.length === 0) return;
     const file = accepted[0];
+    if (!file) { setUploadError('Žiadny súbor bol vybraný.'); return; }
     setUploading(true);
     
     let path = '';

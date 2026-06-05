@@ -249,10 +249,12 @@ export default function Dashboard() {
             const { error: dbFilesErr } = await supabase.from('files').delete().in('folder_id', folderIdsToDelete);
             if (dbFilesErr) throw dbFilesErr;
           }
-          const { error: dbErr } = await supabase.from('folders').delete().eq('id', folder.id);
+          const { error: dbErr } = await supabase.from('folders').delete().in('id', folderIdsToDelete);
           if (dbErr) throw dbErr;
           if (currentFolder && folderIdsToDelete.includes(currentFolder.id)) {
-            const parentFolder = folder.parent_id ? (allFolders || []).find(f => f.id === folder.parent_id) : null;
+            // Use full folder objects from `folders` state (has name, etc.)
+            // allFolders only has {id, parent_id} which would give undefined breadcrumb names
+            const parentFolder = folder.parent_id ? folders.find(f => f.id === folder.parent_id) : null;
             navigateToFolder(parentFolder || null);
           }
           await loadFiles(profile.class);
@@ -309,7 +311,8 @@ export default function Dashboard() {
   const onDrop = useCallback((accepted, rejected) => {
     setUploadError(''); setUploadSuccess('');
     if (rejected.length > 0) {
-      const err = rejected[0].errors[0];
+      const err = rejected[0]?.errors?.[0];
+      if (!err) { setUploadError('Chyba pri nahrávaní súboru.'); return; }
       if (err.code === 'file-too-large') setUploadError('Súbor je príliš veľký. Max 50 MB.');
       else if (err.code === 'file-invalid-type') setUploadError('Nepovolený typ súboru.');
       else setUploadError('Chyba: ' + err.message);
@@ -336,7 +339,12 @@ export default function Dashboard() {
       .select('id', { count: 'exact', head: true })
       .eq('uploaded_by', profile.id)
       .gte('created_at', startOfDay.toISOString());
-    if (!countErr && todayCount + selectedFiles.length > 20) {
+    if (countErr) {
+      setUploadError('Chyba pri kontrole denného limitu. Skús neskôr.');
+      setUploading(false);
+      return;
+    }
+    if (todayCount + selectedFiles.length > 20) {
       setUploadError(`Denný limit 20 súborov by bol prekročený. Môžeš nahrať ešte ${Math.max(0, 20 - todayCount)} súborov.`);
       setUploading(false);
       return;

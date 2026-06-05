@@ -53,10 +53,13 @@ export async function DELETE(request) {
     if (userFilesErr) throw userFilesErr;
 
     if (userFiles?.length) {
-      const { error: storageErr } = await supabaseAdmin.storage
-        .from('class-files')
-        .remove(userFiles.map(f => f.file_name));
-      if (storageErr) throw storageErr;
+      const fileNames = userFiles.map(f => f.file_name);
+      for (let i = 0; i < fileNames.length; i += 100) {
+        const { error: storageErr } = await supabaseAdmin.storage
+          .from('class-files')
+          .remove(fileNames.slice(i, i + 100));
+        if (storageErr) throw storageErr;
+      }
 
       const { error: deleteFilesErr } = await supabaseAdmin.from('files').delete().eq('uploaded_by', userId);
       if (deleteFilesErr) throw deleteFilesErr;

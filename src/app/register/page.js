@@ -157,7 +157,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="rounded-xl p-3 text-xs" style={{ background: 'rgba(180,100,0,0.1)', border: '1px solid rgba(180,100,0,0.25)', color: '#d97706' }}>
-              ⚠️ Po registrácii <strong>napíš správcovi</strong> (Instagram @rumot_sro) aby schválil tvoj účet.
+              ⚠️ Po registrácii <strong>napíš správcovi</strong> (Instagram @rumont_sro) aby schválil tvoj účet.
             </div>
 
             <button type="submit" disabled={loading} className="btn-primary w-full">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
@@ -16,31 +16,35 @@ export default function UpdatePasswordPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [ready, setReady] = useState(false);
+  const readyRef = useRef(false);
 
   useEffect(() => {
     let timeout;
+    const markReady = () => {
+      readyRef.current = true;
+      setReady(true);
+      if (timeout) clearTimeout(timeout);
+    };
+
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          setReady(true);
-          if (timeout) clearTimeout(timeout);
-        }
+        if (session) markReady();
       } catch (err) {
         console.error('Error getting session:', err);
       }
     };
 
+    // Use ref in the callback to avoid stale closure — state won't be visible here
     timeout = setTimeout(() => {
-      if (!ready) router.replace('/forgot-password');
+      if (!readyRef.current) router.replace('/forgot-password');
     }, 10000);
 
     checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session) {
-        setReady(true);
-        if (timeout) clearTimeout(timeout);
+        markReady();
       }
     });
 
@@ -64,6 +68,7 @@ export default function UpdatePasswordPage() {
     }
 
     setLoading(true);
+    let redirectTimer;
     try {
       const { error: updateError } = await supabase.auth.updateUser({ password });
 
@@ -75,12 +80,13 @@ export default function UpdatePasswordPage() {
 
       await supabase.auth.signOut();
       setSuccess(true);
-      setTimeout(() => router.push('/'), 3000);
+      redirectTimer = setTimeout(() => router.push('/'), 3000);
     } catch (err) {
       console.error(err);
       setError('Nastala neočakávaná chyba pri aktualizácii hesla.');
       setLoading(false);
     }
+    return () => { if (redirectTimer) clearTimeout(redirectTimer); };
   }
 
   return (
