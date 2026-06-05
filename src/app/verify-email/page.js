@@ -3,10 +3,14 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft } from 'lucide-react';
+import ThemeToggle from '@/app/components/ThemeToggle';
 
 export default function VerifyEmailPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--bg)' }}>
+      <div className="absolute top-5 right-5 z-20">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-md text-center animate-fade-in">
         <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-md p-1.5 mx-auto mb-4"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>

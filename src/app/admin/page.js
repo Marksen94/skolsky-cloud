@@ -821,7 +821,8 @@ function AdminFolderCard({ folder, childCount, isSelected, onOpen, onDelete }) {
             <Folder size={20} style={{ color: '#f59e0b' }} />
           </div>
           <button type="button" onClick={e => { e.stopPropagation(); onDelete(); }}
-            className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all">
+            className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 w-6 h-6 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all"
+            style={{ background: 'rgba(200,32,10,0.1)' }}>
             <Trash2 size={12} />
           </button>
         </div>

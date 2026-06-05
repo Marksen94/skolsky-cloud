@@ -18,7 +18,6 @@ export default function Dashboard() {
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
-  const [selectedFile, setSelectedFile] = useState(null);
 
   const userMenuRef = useRef(null);
   const userMenuBtnRef = useRef(null);
@@ -293,6 +292,8 @@ export default function Dashboard() {
   }
 
   // Fix 6 — sanitácia user inputu: strip HTML tagy + limit dĺžky
+  // Použitie: sanitizeText(str) pred uložením textových vstupov od používateľa
+  // Momentálne sa descriptions nepoužívajú (vždy null), ale funkcia ostáva pre budúce použitie
   function sanitizeText(str, maxLength = 300) {
     if (!str) return null;
     const stripped = str
@@ -407,9 +408,16 @@ export default function Dashboard() {
       title: 'Vymazat subor?',
       message: `"${file.original_name}" bude natrvalo vymazany.`,
       onConfirm: async () => {
-        await supabase.storage.from('class-files').remove([file.file_name]);
-        await supabase.from('files').delete().eq('id', file.id);
-        setFiles(prev => prev.filter(f => f.id !== file.id));
+        try {
+          const { error: storageErr } = await supabase.storage.from('class-files').remove([file.file_name]);
+          if (storageErr) throw storageErr;
+          const { error: dbErr } = await supabase.from('files').delete().eq('id', file.id);
+          if (dbErr) throw dbErr;
+          setFiles(prev => prev.filter(f => f.id !== file.id));
+        } catch (err) {
+          console.error('deleteFile error:', err);
+          askConfirm({ title: 'Chyba', message: 'Súbor sa nepodarilo vymazat: ' + err.message, danger: false, onConfirm: () => {} });
+        }
       },
     });
   }
@@ -730,7 +738,7 @@ export default function Dashboard() {
           <StatCard icon={<Clock size={20} style={{ color: '#a855f7' }} />} title="Velkost" value={files.length > 0 ? formatFileSize(files.reduce((sum, f) => sum + (f.file_size || 0), 0)) : '0 B'} subtitle="vsetky subory spolu" color="purple" />
         </div>
 
-        <div className="card shadow-card hover:shadow-lg active:shadow-lg active:scale-[0.995] transition-all duration-150 animate-slide-up">
+        <div className="card shadow-card hover:shadow-card-hover active:shadow-card-hover active:scale-[0.995] transition-all duration-150 animate-slide-up">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
               <CloudUpload size={18} style={{ color: 'var(--accent-link)' }} />
