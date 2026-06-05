@@ -13,6 +13,22 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Heslo musí mať aspoň 6 znakov.' }, { status: 400 });
     }
 
+    const VALID_CLASSES = [
+      '1.A', '1.C', '1.T', '1.G', '1.H', '1.V',
+      '2.A', '2.C', '2.T', '2.G',
+      '3.A', '3.C', '3.T', '3.G',
+      '4.A', '4.C', '4.T', '4.G',
+    ];
+    if (!VALID_CLASSES.includes(studentClass)) {
+      return NextResponse.json({ error: 'Neplatná trieda.' }, { status: 400 });
+    }
+
+    const cleanFirst = firstName.trim().slice(0, 50);
+    const cleanLast = lastName.trim().slice(0, 50);
+    if (!cleanFirst || !cleanLast) {
+      return NextResponse.json({ error: 'Meno a priezvisko sú povinné.' }, { status: 400 });
+    }
+
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -35,8 +51,8 @@ export async function POST(request) {
     // Vytvor profil so statusom pending
     const { error: profileError } = await supabaseAdmin.from('profiles').insert({
       id: authData.user.id,
-      first_name: firstName.trim(),
-      last_name: lastName.trim(),
+      first_name: cleanFirst,
+      last_name: cleanLast,
       email,
       class: studentClass,
       status: 'pending',

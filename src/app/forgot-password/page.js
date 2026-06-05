@@ -69,6 +69,9 @@ export default function ForgotPasswordPage() {
               <p className="text-sm leading-relaxed px-2" style={{ color: 'var(--text-muted)' }}>
                 {successMsg}
               </p>
+              <p className="text-xs mt-3 px-2" style={{ color: 'var(--text-dim)' }}>
+                📧 Skontroluj aj priecinok <strong>Spam / Junk</strong> — emaily od Supabase sa tam občas objavia.
+              </p>
             </div>
           ) : (
             <>

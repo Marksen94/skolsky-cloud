@@ -51,6 +51,14 @@ export default function Dashboard() {
   // Fix 11 - lightbox
   const [lightboxFile, setLightboxFile] = useState(null);
 
+  // Escape klávesa zatvorí lightbox
+  useEffect(() => {
+    if (!lightboxFile) return;
+    function onKey(e) { if (e.key === 'Escape') setLightboxFile(null); }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [lightboxFile]);
+
   // Fix 10 - mobile menu
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 

@@ -58,6 +58,7 @@ export default function UpdatePasswordPage() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!ready) return;
     setError('');
 
     if (password.length < 6) {
