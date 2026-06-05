@@ -19,9 +19,9 @@ export default function UpdatePasswordPage() {
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      // Po 5 sekundach ak session stale neni — presmeruj na forgot-password
+      // Po 10 sekundach ak session stale neni — presmeruj na forgot-password
       if (!ready) router.replace('/forgot-password');
-    }, 5000);
+    }, 10000);
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {

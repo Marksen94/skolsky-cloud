@@ -24,8 +24,9 @@ export default function AdminPage() {
   const [deletionRequests, setDeletionRequests] = useState([]);
   const [files, setFiles] = useState([]);
   const [userSearch, setUserSearch] = useState('');
+  const [userClassFilter, setUserClassFilter] = useState('');
   const [fileSearch, setFileSearch] = useState('');
-  const [classFilter, setClassFilter] = useState('');
+  const [fileClassFilter, setFileClassFilter] = useState('');
 
   // Fix 5 — vlastný confirm modal
   const [confirmModal, setConfirmModal] = useState(null);
@@ -377,12 +378,12 @@ export default function AdminPage() {
 
   const filteredUsers = approved.filter(u => {
     const name = `${u.first_name} ${u.last_name} ${u.email} ${u.class}`.toLowerCase();
-    return name.includes(userSearch.toLowerCase()) && (classFilter ? u.class === classFilter : true) && !u.deletion_requested;
+    return name.includes(userSearch.toLowerCase()) && (userClassFilter ? u.class === userClassFilter : true) && !u.deletion_requested;
   });
   const uniqueClasses = new Set(approved.map(u => u.class)).size;
   const filteredFiles = files.filter(f => {
     const text = `${f.original_name} ${f.description || ''} ${f.profiles?.first_name || ''} ${f.class}`.toLowerCase();
-    return text.includes(fileSearch.toLowerCase()) && (classFilter ? f.class === classFilter : true);
+    return text.includes(fileSearch.toLowerCase()) && (fileClassFilter ? f.class === fileClassFilter : true);
   });
 
   const adminCurrentFolderId = adminCurrentFolder ? adminCurrentFolder.id : null;
@@ -554,7 +555,7 @@ export default function AdminPage() {
               </div>
               <div className="input-with-icon">
                 <Filter size={15} className="input-icon" />
-                <select className="input-inner text-sm" value={classFilter} onChange={e => setClassFilter(e.target.value)}>
+                <select className="input-inner text-sm" value={userClassFilter} onChange={e => setUserClassFilter(e.target.value)}>
                   <option value="">Všetky triedy</option>
                   {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
@@ -699,7 +700,7 @@ export default function AdminPage() {
                       </button>
                       {adminFolderPath.map((f, i) => (
                         <span key={f.id} className="flex items-center gap-1">
-                          <ChevronRight size={11} style={{ color: 'var(--border)' }} />
+                          <ChevronRight size={11} style={{ color: 'var(--text-dim)' }} />
                           <button onClick={() => adminNavigateToFolder(f)} className="px-2 py-1 rounded-lg font-medium"
                             style={i === adminFolderPath.length - 1 ? { background: 'var(--accent-link)', color: 'white' } : { color: 'var(--text-muted)' }}>
                             {f.name}
@@ -747,7 +748,7 @@ export default function AdminPage() {
                 </div>
                 <div className="input-with-icon">
                   <Filter size={15} className="input-icon" />
-                  <select className="input-inner text-sm" value={classFilter} onChange={e => setClassFilter(e.target.value)}>
+                  <select className="input-inner text-sm" value={fileClassFilter} onChange={e => setFileClassFilter(e.target.value)}>
                     <option value="">Všetky triedy</option>
                     {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>

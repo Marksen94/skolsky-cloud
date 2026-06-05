@@ -133,6 +133,10 @@ select.input-inner {
   box-shadow: 0 0 0 4px rgba(26, 58, 107, 0.10);
 }
 
+.dark .input-field:focus {
+  box-shadow: 0 0 0 4px rgba(110, 170, 255, 0.25);
+}
+
 /* select má šípku vpravo — svetlý režim */
 select.input-field {
   padding-right: 32px;

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase, MAX_FILE_SIZE, formatFileSize, getFileIcon, getSignedUrl } from '@/lib/supabase';
 import { useDropzone } from 'react-dropzone';
-import { Upload, LogOut, Trash2, Download, Clock, User, CloudUpload, BookOpen, Search, AlertCircle, FolderOpen, X, Eye, EyeOff, CheckCircle, Lock, Folder, ChevronRight, FolderPlus, KeyRound, UserX, ChevronDown, ZoomIn, Menu } from 'lucide-react';
+import { Upload, LogOut, Trash2, Download, Clock, User, CloudUpload, BookOpen, Search, AlertCircle, FolderOpen, X, Eye, EyeOff, CheckCircle, Folder, ChevronRight, FolderPlus, KeyRound, UserX, ChevronDown, ZoomIn, Menu } from 'lucide-react';
 import ThemeToggle from '@/app/components/ThemeToggle';
 
 export default function Dashboard() {
@@ -137,14 +137,14 @@ export default function Dashboard() {
     }
   }
 
-  async function loadFiles(className) {
+  async function loadFiles(className, limit = fileLimit) {
     try {
       const { data: filesData, count, error: filesErr } = await supabase.from('files')
         .select(`*, profiles(first_name, last_name)`, { count: 'exact' })
-        .eq('class', className).order('created_at', { ascending: false }).range(0, fileLimit - 1);
+        .eq('class', className).order('created_at', { ascending: false }).range(0, limit - 1);
       if (filesErr) throw filesErr;
       setFiles(filesData || []);
-      setHasMoreFiles((count || 0) > fileLimit);
+      setHasMoreFiles((count || 0) > limit);
       const { data: foldersData, error: foldersErr } = await supabase.from('folders')
         .select('*').eq('class', className).order('name', { ascending: true });
       if (foldersErr) throw foldersErr;
@@ -208,11 +208,11 @@ export default function Dashboard() {
 
   async function deleteFolder(folder) {
     askConfirm({
-      title: 'Vymazat priecinok?',
-      message: `Priecinok "${folder.name}" a vsetok obsah bude natrvalo vymazany.`,
+      title: 'Vymazať priečinok?',
+      message: `Priečinok "${folder.name}" a všetok obsah bude natrvalo vymazaný.`,
       onConfirm: async () => {
         if (folder.created_by !== profile.id && !profile.is_admin) {
-          askConfirm({ title: 'Chyba', message: 'Mozes vymazat iba vlastne priecinky.', danger: false, onConfirm: () => {} });
+          askConfirm({ title: 'Chyba', message: 'Môžeš vymazať iba vlastné priečinky.', danger: false, onConfirm: () => {} });
           return;
         }
         setLoading(true);
@@ -291,25 +291,13 @@ export default function Dashboard() {
     setProfileError(''); setProfileSuccess(''); setShowProfile(true);
   }
 
-  // Fix 6 — sanitácia user inputu: strip HTML tagy + limit dĺžky
-  // Použitie: sanitizeText(str) pred uložením textových vstupov od používateľa
-  // Momentálne sa descriptions nepoužívajú (vždy null), ale funkcia ostáva pre budúce použitie
-  function sanitizeText(str, maxLength = 300) {
-    if (!str) return null;
-    const stripped = str
-      .replace(/<[^>]*>/g, '')       // strip HTML tagy
-      .replace(/[<>"'`]/g, '')       // strip zvyšné nebezpečné znaky
-      .trim()
-      .slice(0, maxLength);
-    return stripped || null;
-  }
 
   const onDrop = useCallback((accepted, rejected) => {
     setUploadError(''); setUploadSuccess('');
     if (rejected.length > 0) {
       const err = rejected[0].errors[0];
-      if (err.code === 'file-too-large') setUploadError('Subor je prilis velky. Max 50 MB.');
-      else if (err.code === 'file-invalid-type') setUploadError('Nepovoleny typ suboru.');
+      if (err.code === 'file-too-large') setUploadError('Súbor je príliš veľký. Max 50 MB.');
+      else if (err.code === 'file-invalid-type') setUploadError('Nepovolený typ súboru.');
       else setUploadError('Chyba: ' + err.message);
       return;
     }
@@ -381,8 +369,15 @@ export default function Dashboard() {
     setUploading(false);
     setUploadProgress({ current: 0, total: 0 });
 
-    if (errors.length > 0) setUploadError('Chyba: ' + errors.join(' | '));
-    if (successCount > 0) setUploadSuccess(successCount === 1 ? 'Súbor bol úspešne nahraný!' : `${successCount} súborov bolo úspešne nahraných!`);
+    if (errors.length > 0) {
+      setUploadError('Chyba: ' + errors.join(' | '));
+      setTimeout(() => setUploadError(''), 5000);
+    }
+    if (successCount > 0) {
+      const msg = successCount === 1 ? 'Súbor bol úspešne nahraný!' : `${successCount} súborov bolo úspešne nahraných!`;
+      setUploadSuccess(msg);
+      setTimeout(() => setUploadSuccess(''), 4000);
+    }
   }, [profile, currentFolder, selectedFiles, uploading]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -401,12 +396,12 @@ export default function Dashboard() {
 
   function deleteFile(file) {
     if (file.uploaded_by !== profile.id) {
-      askConfirm({ title: 'Chyba', message: 'Mozes vymazat len vlastne subory.', danger: false, onConfirm: () => {} });
+      askConfirm({ title: 'Chyba', message: 'Môžeš vymazať iba vlastné súbory.', danger: false, onConfirm: () => {} });
       return;
     }
     askConfirm({
-      title: 'Vymazat subor?',
-      message: `"${file.original_name}" bude natrvalo vymazany.`,
+      title: 'Vymazať súbor?',
+      message: `"${file.original_name}" bude natrvalo vymazaný.`,
       onConfirm: async () => {
         try {
           const { error: storageErr } = await supabase.storage.from('class-files').remove([file.file_name]);
@@ -416,7 +411,7 @@ export default function Dashboard() {
           setFiles(prev => prev.filter(f => f.id !== file.id));
         } catch (err) {
           console.error('deleteFile error:', err);
-          askConfirm({ title: 'Chyba', message: 'Súbor sa nepodarilo vymazat: ' + err.message, danger: false, onConfirm: () => {} });
+          askConfirm({ title: 'Chyba', message: 'Súbor sa nepodarilo vymazať: ' + err.message, danger: false, onConfirm: () => {} });
         }
       },
     });
@@ -852,7 +847,7 @@ export default function Dashboard() {
             <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium"
               style={{ background: 'rgba(26,58,107,0.08)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
               <Search size={12} />
-              Hladam vo vsetkych priecinkov triedy - {filteredFiles.length} vysledkov
+              Hľadám vo všetkých priečinkoch triedy — {filteredFiles.length} výsledkov
             </div>
           )}
 
@@ -865,7 +860,7 @@ export default function Dashboard() {
               </button>
               {folderPath.map((f, i) => (
                 <span key={f.id} className="flex items-center gap-1">
-                  <ChevronRight size={13} style={{ color: 'var(--border)' }} />
+                  <ChevronRight size={13} style={{ color: 'var(--text-dim)' }} />
                   <button onClick={() => navigateToFolder(f)}
                     className="px-2 py-1 rounded-lg transition-colors font-medium"
                     style={i === folderPath.length - 1 ? { background: 'var(--accent-link)', color: 'white' } : { color: 'var(--text-muted)', background: 'transparent' }}>
@@ -881,10 +876,10 @@ export default function Dashboard() {
               style={{ background: 'rgba(180,120,0,0.08)', borderColor: 'rgba(180,120,0,0.2)' }}>
               <Folder size={16} style={{ color: '#f59e0b', flexShrink: 0 }} />
               <input type="text" className="input-field py-1.5 text-sm flex-1"
-                placeholder="Nazov priecinoka..." value={newFolderName}
+                placeholder="Názov priečinka..." value={newFolderName}
                 onChange={e => setNewFolderName(e.target.value)} autoFocus maxLength={60} />
               <button type="submit" disabled={folderSaving} className="btn-primary py-1.5 px-3 text-sm">
-                {folderSaving ? '...' : 'Vytvorit'}
+                {folderSaving ? '...' : 'Vytvoriť'}
               </button>
               <button type="button" onClick={() => setShowCreateFolder(false)}
                 className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
@@ -916,7 +911,7 @@ export default function Dashboard() {
                 <BookOpen size={24} style={{ color: 'var(--text-dim)' }} />
               </div>
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                {globalSearch ? 'Ziadne subory nezodpovedaju hladaniu.' : currentFolder ? 'Tento priecinok je prazdny.' : 'Trieda zatial nema ziadne materialy.'}
+                {globalSearch ? 'Žiadne súbory nezodpovedajú hľadaniu.' : currentFolder ? 'Tento priečinok je prázdny.' : 'Trieda zatiaľ nemá žiadne materiály.'}
               </p>
             </div>
           ) : filteredFiles.length > 0 ? (
@@ -937,7 +932,7 @@ export default function Dashboard() {
               <button onClick={loadMoreFiles} disabled={loadingMore}
                 className="px-6 py-2.5 rounded-2xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: 'var(--surface-2)', color: 'var(--accent-link)', border: '1px solid var(--border)' }}>
-                {loadingMore ? 'Nacitavam...' : 'Nacitat viac suborov'}
+                {loadingMore ? 'Načítavam...' : 'Načítať viac súborov'}
               </button>
             </div>
           )}
