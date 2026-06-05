@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase, CLASSES, MAX_FILE_SIZE, formatFileSize, getFileIcon, getSignedUrl } from '@/lib/supabase';
@@ -16,6 +16,7 @@ const TABS = ['Žiadosti', 'Žiaci', 'Súbory'];
 
 export default function AdminPage() {
   const router = useRouter();
+  const mountedRef = useRef(true);
   const [adminProfile, setAdminProfile] = useState(null);
   const [tab, setTab] = useState('Žiadosti');
   const [loading, setLoading] = useState(true);
@@ -51,7 +52,10 @@ export default function AdminPage() {
   const [adminFolderSaving, setAdminFolderSaving] = useState(false);
   const [adminFolderError, setAdminFolderError] = useState('');
 
-  useEffect(() => { checkAdmin(); }, []);
+  useEffect(() => {
+    checkAdmin();
+    return () => { mountedRef.current = false; };
+  }, []);
 
   // Fix 1 — Realtime notifikacie pre admina
   useEffect(() => {
@@ -146,8 +150,12 @@ export default function AdminPage() {
             await loadApproved();
             await loadFiles();
           } else {
-            const d = await res.json();
-            askConfirm({ title: 'Chyba', message: d.error || 'Neznáma chyba', danger: false, onConfirm: () => {} });
+            try {
+              const d = await res.json();
+              askConfirm({ title: 'Chyba', message: d.error || 'Neznáma chyba', danger: false, onConfirm: () => {} });
+            } catch {
+              askConfirm({ title: 'Chyba', message: 'Chyba pri spracovaní odpovede servera', danger: false, onConfirm: () => {} });
+            }
           }
         } catch (err) {
           askConfirm({ title: 'Chyba', message: err.message, danger: false, onConfirm: () => {} });
@@ -249,7 +257,7 @@ export default function AdminPage() {
       while (temp) {
         path.unshift(temp);
         const parentId = temp.parent_id;
-        temp = parentId ? uploadClassFolders.find(f => f.id === parentId) : null;
+        temp = parentId ? uploadClassFolders?.find(f => f.id === parentId) : null;
       }
       setAdminCurrentFolder(folder); setAdminFolderPath(path); setUploadFolderId(folder.id);
     }
@@ -280,6 +288,7 @@ export default function AdminPage() {
       title: `Vymazať priečinok?`,
       message: `Priečinok „${folder.name}" a všetok jeho obsah bude natrvalo vymazaný.`,
       onConfirm: async () => {
+        if (!mountedRef.current) return;
         try {
           const getDescendantIds = (folderId, list) => {
             let ids = [folderId];
@@ -297,18 +306,20 @@ export default function AdminPage() {
             }
             const { error: deleteFilesErr } = await supabase.from('files').delete().in('folder_id', folderIdsToDelete);
             if (deleteFilesErr) throw deleteFilesErr;
-            setFiles(prev => prev.filter(f => !folderIdsToDelete.includes(f.folder_id)));
+            if (mountedRef.current) setFiles(prev => prev.filter(f => !folderIdsToDelete.includes(f.folder_id)));
           }
           const { error: dbErr } = await supabase.from('folders').delete().eq('id', folder.id);
           if (dbErr) throw dbErr;
-          setUploadClassFolders(prev => prev.filter(f => !folderIdsToDelete.includes(f.id)));
-          if (uploadFolderId && folderIdsToDelete.includes(uploadFolderId)) setUploadFolderId('');
-          if (adminCurrentFolder && folderIdsToDelete.includes(adminCurrentFolder.id)) {
-            const parent = folder.parent_id ? uploadClassFolders.find(f => f.id === folder.parent_id) : null;
-            adminNavigateToFolder(parent || null);
+          if (mountedRef.current) {
+            setUploadClassFolders(prev => prev.filter(f => !folderIdsToDelete.includes(f.id)));
+            if (uploadFolderId && folderIdsToDelete.includes(uploadFolderId)) setUploadFolderId('');
+            if (adminCurrentFolder && folderIdsToDelete.includes(adminCurrentFolder.id)) {
+              const parent = folder.parent_id ? uploadClassFolders?.find(f => f.id === folder.parent_id) : null;
+              adminNavigateToFolder(parent || null);
+            }
           }
         } catch (err) {
-          askConfirm({ title: 'Chyba', message: 'Nepodarilo sa vymazať priečinok: ' + err.message, danger: false, onConfirm: () => {} });
+          if (mountedRef.current) askConfirm({ title: 'Chyba', message: 'Nepodarilo sa vymazať priečinok: ' + err.message, danger: false, onConfirm: () => {} });
         }
       },
     });
@@ -351,7 +362,7 @@ export default function AdminPage() {
       }
       
       if (inserted) setFiles(prev => [{ ...inserted, profiles: { first_name: adminProfile.first_name, last_name: adminProfile.last_name } }, ...prev]);
-      const folderName = uploadFolderId ? uploadClassFolders.find(f => f.id === uploadFolderId)?.name : null;
+      const folderName = uploadFolderId ? uploadClassFolders?.find(f => f.id === uploadFolderId)?.name : null;
       setUploadSuccess(`„${file.name}" nahratý do triedy ${uploadClass}${folderName ? ` → „${folderName}"` : ''}!`);
       setUploadDesc('');
     } catch (err) {
@@ -780,7 +791,7 @@ export default function AdminPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 px-3 text-sm" style={{ color: 'var(--text-muted)' }}>{file.profiles?.first_name} {file.profiles?.last_name}</td>
+                        <td className="py-3 px-3 text-sm" style={{ color: 'var(--text-muted)' }}>{file.profiles?.first_name || ''} {file.profiles?.last_name || ''}</td>
                         <td className="py-3 px-3"><span className="bg-school-blue text-white text-xs px-2 py-0.5 rounded-full font-medium">{file.class}</span></td>
                         <td className="hidden sm:table-cell py-3 px-3 text-xs" style={{ color: 'var(--text-muted)' }}>{file.file_size ? formatFileSize(file.file_size) : '—'}</td>
                         <td className="hidden md:table-cell py-3 px-3 text-xs" style={{ color: 'var(--text-muted)' }}>{new Date(file.created_at).toLocaleDateString('sk-SK')}</td>

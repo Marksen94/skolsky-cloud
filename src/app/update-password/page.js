@@ -18,27 +18,37 @@ export default function UpdatePasswordPage() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      // Po 10 sekundach ak session stale neni — presmeruj na forgot-password
+    let timeout;
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setReady(true);
+          if (timeout) clearTimeout(timeout);
+        }
+      } catch (err) {
+        console.error('Error getting session:', err);
+      }
+    };
+
+    timeout = setTimeout(() => {
       if (!ready) router.replace('/forgot-password');
     }, 10000);
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setReady(true);
-        clearTimeout(timeout);
-      }
-    });
+    checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session) {
         setReady(true);
-        clearTimeout(timeout);
+        if (timeout) clearTimeout(timeout);
       }
     });
 
-    return () => { subscription.unsubscribe(); clearTimeout(timeout); };
-  }, []);
+    return () => {
+      subscription.unsubscribe();
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [router]);
 
   async function handleSubmit(e) {
     e.preventDefault();

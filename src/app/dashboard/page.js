@@ -21,6 +21,7 @@ export default function Dashboard() {
 
   const userMenuRef = useRef(null);
   const userMenuBtnRef = useRef(null);
+  const messageTimeoutsRef = useRef({});
   function getMenuPos() {
     const btn = userMenuBtnRef.current;
     if (!btn) return { top: 72, left: 8 };
@@ -72,9 +73,14 @@ export default function Dashboard() {
   async function openLightbox(file) {
     try {
       const signedUrl = await getSignedUrl(file.file_name, 600);
-      setLightboxFile({ ...file, signedUrl: signedUrl || file.file_url });
+      if (!signedUrl) {
+        askConfirm({ title: 'Chyba', message: 'Podpísaný URL sa nepodarilo vygenerovať.', danger: false, onConfirm: () => {} });
+        return;
+      }
+      setLightboxFile({ ...file, signedUrl });
     } catch (err) {
       console.error('Error opening lightbox:', err);
+      askConfirm({ title: 'Chyba', message: 'Náhľad obrázka sa nepodarilo načítať: ' + err.message, danger: false, onConfirm: () => {} });
     }
   }
 
@@ -115,6 +121,13 @@ export default function Dashboard() {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showUserMenu]);
+
+  useEffect(() => {
+    return () => {
+      if (messageTimeoutsRef.current.error) clearTimeout(messageTimeoutsRef.current.error);
+      if (messageTimeoutsRef.current.success) clearTimeout(messageTimeoutsRef.current.success);
+    };
+  }, []);
 
   useEffect(() => { loadUser(); }, []);
 
@@ -372,12 +385,14 @@ export default function Dashboard() {
 
     if (errors.length > 0) {
       setUploadError('Chyba: ' + errors.join(' | '));
-      setTimeout(() => setUploadError(''), 5000);
+      if (messageTimeoutsRef.current.error) clearTimeout(messageTimeoutsRef.current.error);
+      messageTimeoutsRef.current.error = setTimeout(() => setUploadError(''), 5000);
     }
     if (successCount > 0) {
       const msg = successCount === 1 ? 'Súbor bol úspešne nahraný!' : `${successCount} súborov bolo úspešne nahraných!`;
       setUploadSuccess(msg);
-      setTimeout(() => setUploadSuccess(''), 4000);
+      if (messageTimeoutsRef.current.success) clearTimeout(messageTimeoutsRef.current.success);
+      messageTimeoutsRef.current.success = setTimeout(() => setUploadSuccess(''), 4000);
     }
   }, [profile, currentFolder, selectedFiles, uploading]);
 
@@ -1013,7 +1028,7 @@ function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview, 
       )}
       <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
         <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-          <p className="font-medium">{file.profiles?.first_name} {file.profiles?.last_name}</p>
+          <p className="font-medium">{file.profiles?.first_name || ''} {file.profiles?.last_name || ''}</p>
           <div className="flex items-center gap-1 mt-0.5">
             <Clock size={10} /> <span>{date}</span>
             {file.file_size && <span>- {formatFileSize(file.file_size)}</span>}
