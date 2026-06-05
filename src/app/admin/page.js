@@ -461,12 +461,12 @@ export default function AdminPage() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <span className="text-blue-200 text-sm hidden sm:block font-medium">{adminProfile?.first_name} {adminProfile?.last_name}</span>
             <ThemeToggle />
             <button onClick={async () => { await supabase.auth.signOut(); router.push('/'); }}
               className="flex items-center gap-1.5 text-blue-200 hover:text-white transition-colors text-sm">
-              <LogOut size={15} /> Odhlásiť
+              <LogOut size={15} /> <span className="hidden sm:inline">Odhlásiť</span>
             </button>
           </div>
         </div>

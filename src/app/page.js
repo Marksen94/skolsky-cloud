@@ -185,7 +185,7 @@ export default function LoginPage() {
         }} />
 
         {/* Prepínač temy – vpravo hore */}
-        <div className="absolute top-5 right-5 z-20">
+        <div className="fixed top-5 right-5 z-20">
           <ThemeToggle />
         </div>
 

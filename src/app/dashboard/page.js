@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { supabase, MAX_FILE_SIZE, formatFileSize, getFileIcon, getSignedUrl } from '@/lib/supabase';
+import { supabase, MAX_FILE_SIZE, ALLOWED_TYPES, formatFileSize, getFileIcon, getSignedUrl } from '@/lib/supabase';
 import { useDropzone } from 'react-dropzone';
 import { Upload, LogOut, Trash2, Download, Clock, User, CloudUpload, BookOpen, Search, AlertCircle, FolderOpen, X, Eye, EyeOff, CheckCircle, Folder, ChevronRight, FolderPlus, KeyRound, UserX, ChevronDown, ZoomIn, Menu } from 'lucide-react';
 import ThemeToggle from '@/app/components/ThemeToggle';
@@ -358,6 +358,12 @@ export default function Dashboard() {
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
       setUploadProgress({ current: i + 1, total: selectedFiles.length });
+
+      // Server-side validácia typu súboru
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        errors.push(`${file.name}: Nepovolený typ súboru.`);
+        continue;
+      }
 
       const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
       const path = `${profile.class}/${safeName}`;
@@ -759,7 +765,7 @@ export default function Dashboard() {
           <StatCard icon={<Clock size={20} style={{ color: '#a855f7' }} />} title="Velkost" value={files.length > 0 ? formatFileSize(files.reduce((sum, f) => sum + (f.file_size || 0), 0)) : '0 B'} subtitle="vsetky subory spolu" color="purple" />
         </div>
 
-        <div className="card shadow-card hover:shadow-card-hover active:shadow-card-hover active:scale-[0.995] transition-all duration-150 animate-slide-up">
+        <div className="card shadow-card animate-slide-up">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
               <CloudUpload size={18} style={{ color: 'var(--accent-link)' }} />

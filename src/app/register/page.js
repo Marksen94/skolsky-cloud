@@ -76,7 +76,7 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--bg)' }}>
-      <div className="absolute top-5 right-5 z-20">
+      <div className="fixed top-5 right-5 z-20">
         <ThemeToggle />
       </div>
 

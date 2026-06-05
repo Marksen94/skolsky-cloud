@@ -35,7 +35,7 @@ export default function CookieBanner() {
       role="dialog"
       aria-live="polite"
       aria-label="Súhlas s cookies"
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[80] w-[calc(100%-2rem)] max-w-lg animate-slide-up"
+      className="fixed bottom-4 left-4 z-[80] w-[calc(100%-2rem)] max-w-lg animate-slide-up"
     >
       <div
         className="rounded-2xl shadow-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-3"
@@ -47,7 +47,7 @@ export default function CookieBanner() {
       >
         <div className="flex items-start gap-3 flex-1 min-w-0">
           <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
             style={{ background: 'rgba(180,100,0,0.12)' }}
           >
             <Cookie size={18} style={{ color: '#d97706' }} />
@@ -63,7 +63,7 @@ export default function CookieBanner() {
             </Link>
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
           <button
             onClick={decline}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
