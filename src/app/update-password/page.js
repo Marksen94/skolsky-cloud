@@ -17,6 +17,7 @@ export default function UpdatePasswordPage() {
   const [success, setSuccess] = useState(false);
   const [ready, setReady] = useState(false);
   const readyRef = useRef(false);
+  const redirectTimerRef = useRef(null);
 
   useEffect(() => {
     let timeout;
@@ -51,6 +52,7 @@ export default function UpdatePasswordPage() {
     return () => {
       subscription.unsubscribe();
       if (timeout) clearTimeout(timeout);
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
     };
   }, [router]);
 
@@ -68,7 +70,6 @@ export default function UpdatePasswordPage() {
     }
 
     setLoading(true);
-    let redirectTimer;
     try {
       const { error: updateError } = await supabase.auth.updateUser({ password });
 
@@ -80,13 +81,12 @@ export default function UpdatePasswordPage() {
 
       await supabase.auth.signOut();
       setSuccess(true);
-      redirectTimer = setTimeout(() => router.push('/'), 3000);
+      redirectTimerRef.current = setTimeout(() => router.push('/'), 3000);
     } catch (err) {
       console.error(err);
       setError('Nastala neočakávaná chyba pri aktualizácii hesla.');
       setLoading(false);
     }
-    return () => { if (redirectTimer) clearTimeout(redirectTimer); };
   }
 
   return (

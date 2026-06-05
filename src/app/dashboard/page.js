@@ -22,17 +22,7 @@ export default function Dashboard() {
   const userMenuRef = useRef(null);
   const userMenuBtnRef = useRef(null);
   const messageTimeoutsRef = useRef({});
-  function getMenuPos() {
-    const btn = userMenuBtnRef.current;
-    if (!btn) return { top: 72, left: 8 };
-    const r = btn.getBoundingClientRect();
-    const menuWidth = 200;
-    // Zarovná pravý okraj menu s pravým okrajom tlačidla, potom clampuje do viewport
-    let left = r.right - menuWidth;
-    left = Math.max(8, left);                             // nesmie ísť za ľavý okraj
-    left = Math.min(left, window.innerWidth - menuWidth - 8); // nesmie ísť za pravý okraj
-    return { top: r.bottom + 8, left };
-  }
+
   const [showProfile, setShowProfile] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showDeleteRequest, setShowDeleteRequest] = useState(false);
@@ -130,6 +120,18 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => { loadUser(); }, []);
+
+  useEffect(() => {
+    const isOverlayOpen = !!(mobileMenuOpen || lightboxFile || showProfile || confirmModal || showDeleteRequest);
+    if (isOverlayOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen, lightboxFile, showProfile, confirmModal, showDeleteRequest]);
 
   async function loadUser() {
     try {
@@ -552,28 +554,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Dropdown menu */}
-      {showUserMenu && (
-        <div ref={userMenuRef} className="fixed z-50 rounded-2xl shadow-2xl py-1.5 min-w-[200px] animate-fade-in"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)', ...getMenuPos() }}>
-          <button onClick={() => { setShowUserMenu(false); openProfile(); }}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left"
-            style={{ color: 'var(--text)' }}
-            onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-            <KeyRound size={15} style={{ color: 'var(--accent-link)' }} /> Zmena hesla
-          </button>
-          <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
-          <button onClick={() => { setShowUserMenu(false); setShowDeleteRequest(true); }}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left"
-            style={{ color: '#ef4444' }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(200,32,10,0.08)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-            <UserX size={15} /> Zrusenie uctu
-          </button>
-        </div>
-      )}
-
       {/* Modal Zrusenie uctu */}
       {showDeleteRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" style={{ background: 'var(--overlay)' }}>
@@ -719,13 +699,35 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button ref={userMenuBtnRef} onClick={() => setShowUserMenu(v => !v)}
-              className="hidden sm:flex items-center gap-2 rounded-xl px-3 py-1.5 transition-colors"
-              style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)' }}>
-              <User size={13} className="text-blue-200" />
-              <span className="text-white text-sm font-medium">{profile?.first_name} {profile?.last_name}</span>
-              <ChevronDown size={12} className="text-blue-300" />
-            </button>
+            <div className="relative hidden sm:block">
+              <button ref={userMenuBtnRef} onClick={() => setShowUserMenu(v => !v)}
+                className="flex items-center gap-2 rounded-xl px-3 py-1.5 transition-colors"
+                style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)' }}>
+                <User size={13} className="text-blue-200" />
+                <span className="text-white text-sm font-medium">{profile?.first_name} {profile?.last_name}</span>
+                <ChevronDown size={12} className="text-blue-300" />
+              </button>
+              {showUserMenu && (
+                <div ref={userMenuRef} className="absolute right-0 top-full mt-2 z-50 rounded-2xl shadow-2xl py-1.5 min-w-[200px] animate-fade-in"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                  <button onClick={() => { setShowUserMenu(false); openProfile(); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left"
+                    style={{ color: 'var(--text)' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <KeyRound size={15} style={{ color: 'var(--accent-link)' }} /> Zmena hesla
+                  </button>
+                  <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                  <button onClick={() => { setShowUserMenu(false); setShowDeleteRequest(true); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left"
+                    style={{ color: '#ef4444' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(200,32,10,0.08)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <UserX size={15} /> Zrusenie uctu
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="hidden sm:flex items-center gap-3">
               <ThemeToggle />
               <button onClick={async () => { await supabase.auth.signOut(); router.push('/'); }}

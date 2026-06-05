@@ -237,7 +237,7 @@ CREATE POLICY "Owner and admin can delete files"
   USING (
     bucket_id = 'class-files'
     AND (
-      auth.uid()::text = (storage.foldername(name))[2]
+      owner = auth.uid()
       OR EXISTS (
         SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true
       )

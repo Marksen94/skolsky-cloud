@@ -10,14 +10,15 @@ function AuthCallbackContent() {
   const [status, setStatus] = useState('Overujem odkaz...');
 
   useEffect(() => {
+    let t;
     const code = searchParams.get('code');
     // Použijeme ?next= param ak existuje, inak default
     const next = searchParams.get('next') || '/update-password';
 
     if (!code) {
       setStatus('Neplatný odkaz. Presmerovávam...');
-      setTimeout(() => router.push('/forgot-password'), 2000);
-      return;
+      t = setTimeout(() => router.push('/forgot-password'), 2000);
+      return () => { if (t) clearTimeout(t); };
     }
 
     // Validácia next param — povolíme len interné cesty (začínajú /)  
@@ -28,7 +29,7 @@ function AuthCallbackContent() {
         if (error || !data?.session) {
           console.error('Chyba pri výmene kódu za reláciu:', error);
           setStatus('Odkaz vypršal alebo je neplatný. Presmerovávam...');
-          setTimeout(() => router.push('/forgot-password'), 2500);
+          t = setTimeout(() => router.push('/forgot-password'), 2500);
           return;
         }
         router.push(safeNext);
@@ -36,8 +37,10 @@ function AuthCallbackContent() {
       .catch((err) => {
         console.error('Unexpected error exchanging code for session:', err);
         setStatus('Nastala neočakávaná chyba. Presmerovávam...');
-        setTimeout(() => router.push('/forgot-password'), 2500);
+        t = setTimeout(() => router.push('/forgot-password'), 2500);
       });
+
+    return () => { if (t) clearTimeout(t); };
   }, [router, searchParams]);
 
   return (

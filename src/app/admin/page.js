@@ -71,6 +71,17 @@ export default function AdminPage() {
     return () => supabase.removeChannel(channel);
   }, []);
 
+  useEffect(() => {
+    if (confirmModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [confirmModal]);
+
   async function checkAdmin() {
     try {
       const { data: { session }, error: sessionErr } = await supabase.auth.getSession();

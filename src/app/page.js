@@ -34,8 +34,20 @@ export default function LoginPage() {
       const { data: profile, error } = await supabase
         .from('profiles').select('is_admin, status').eq('id', userId).single();
       if (error) throw error;
-      if (profile?.is_admin) router.push('/admin');
-      else router.push('/dashboard');
+      if (profile?.is_admin) {
+        router.push('/admin');
+      } else if (profile?.status === 'approved') {
+        router.push('/dashboard');
+      } else {
+        if (profile?.status === 'pending') {
+          setError('Tvoj účet čaká na schválenie. Napíš nám na Instagram alebo email.');
+        } else if (profile?.status === 'rejected') {
+          setError('Tvoj účet bol zamietnutý. Kontaktuj správcu školy.');
+        } else {
+          setError('Profil nebol nájdený. Kontaktuj správcu.');
+        }
+        await supabase.auth.signOut();
+      }
     } catch (err) {
       console.error('Error redirecting user:', err);
     }
