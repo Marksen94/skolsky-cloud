@@ -12,9 +12,9 @@ export default function SummerNotification() {
     const day = now.getDate();
 
     const isInSummer =
-      month === 5 ||
-      month === 6 ||
-      (month === 7 && day <= 31);
+      month === 5 ||   // jún
+      month === 6 ||   // júl
+      month === 7;     // august (celý mesiac)
 
     if (!isInSummer) return;
 
