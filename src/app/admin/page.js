@@ -105,7 +105,6 @@ export default function AdminPage() {
     return () => { mountedRef.current = false; };
   }, []);
 
-  // Fix 1 — Realtime notifikacie pre admina
   useEffect(() => {
     const channel = supabase
       .channel('admin-notifications')
@@ -160,7 +159,6 @@ export default function AdminPage() {
     document.body.style.overflow = isOverlayOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [showProfile, confirmModal]);
-
 
   async function checkAdmin() {
     try {
@@ -421,49 +419,43 @@ export default function AdminPage() {
     if (!uploadClass) { setUploadError('Najskôr vyber triedu.'); return; }
     if (rejected.length > 0) {
       const err = rejected[0]?.errors?.[0];
-      if (!err) { setUploadError('Chyba pri nahrávaní súboru.'); return; }
-      if (err.code === 'file-too-large') setUploadError('Súbor je príliš veľký. Max 50 MB.');
+      if (err?.code === 'file-too-large') setUploadError('Jeden zo súborov je príliš veľký. Max 50 MB.');
       else setUploadError('Nepovolený typ súboru.');
-      return;
     }
     if (accepted.length === 0) return;
-    const file = accepted[0];
-    if (!file) { setUploadError('Žiadny súbor bol vybraný.'); return; }
     setUploading(true);
-    
-    let path = '';
-    try {
-      const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-      path = `${uploadClass}/${safeName}`;
-      const { error: uploadErr } = await supabase.storage.from('class-files').upload(path, file, { cacheControl: '3600', upsert: false });
-      if (uploadErr) { setUploadError('Chyba pri nahrávaní: ' + uploadErr.message); setUploading(false); return; }
-      
-      // FIX: Ukladáme cestu (nie publicUrl) — bucket je privátny
-      const { data: inserted, error: dbErr } = await supabase.from('files').insert({
-        uploaded_by: adminProfile.id, class: uploadClass, file_name: path,
-        original_name: file.name, file_url: path, file_type: file.type,
-        file_size: file.size, description: uploadDesc.trim() || null,
-        folder_id: uploadFolderId || null,
-      }).select('*').single();
-      
-      if (dbErr) {
-        // Rollback uploaded file if DB insert fails
-        await supabase.storage.from('class-files').remove([path]);
-        setUploadError('Chyba pri ukladaní: ' + dbErr.message);
-        setUploading(false);
-        return;
+    const folderName = uploadFolderId ? uploadClassFolders?.find(f => f.id === uploadFolderId)?.name : null;
+    let successCount = 0;
+    let firstError = '';
+    for (const file of accepted) {
+      try {
+        const safeName = `${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        const path = `${uploadClass}/${safeName}`;
+        const { error: uploadErr } = await supabase.storage.from('class-files').upload(path, file, { cacheControl: '3600', upsert: false });
+        if (uploadErr) { firstError = firstError || `„${file.name}": ${uploadErr.message}`; continue; }
+        const { data: inserted, error: dbErr } = await supabase.from('files').insert({
+          uploaded_by: adminProfile.id, class: uploadClass, file_name: path,
+          original_name: file.name, file_url: path, file_type: file.type,
+          file_size: file.size, description: uploadDesc.trim() || null,
+          folder_id: uploadFolderId || null,
+        }).select('*').single();
+        if (dbErr) {
+          await supabase.storage.from('class-files').remove([path]);
+          firstError = firstError || `„${file.name}": ${dbErr.message}`;
+          continue;
+        }
+        if (inserted) setFiles(prev => [{ ...inserted, profiles: { first_name: adminProfile.first_name, last_name: adminProfile.last_name } }, ...prev]);
+        successCount++;
+      } catch (err) {
+        firstError = firstError || `„${file.name}": ${err.message}`;
       }
-      
-      if (inserted) setFiles(prev => [{ ...inserted, profiles: { first_name: adminProfile.first_name, last_name: adminProfile.last_name } }, ...prev]);
-      const folderName = uploadFolderId ? uploadClassFolders?.find(f => f.id === uploadFolderId)?.name : null;
-      setUploadSuccess(`„${file.name}" nahratý do triedy ${uploadClass}${folderName ? ` → „${folderName}"` : ''}!`);
-      setUploadDesc('');
-    } catch (err) {
-      console.error(err);
-      setUploadError('Nastala neočakávaná chyba pri nahrávaní: ' + err.message);
-    } finally {
-      setUploading(false);
     }
+    setUploading(false);
+    if (successCount > 0) {
+      setUploadSuccess(`${successCount} súbor${successCount > 1 ? 'y' : ''} nahratý do triedy ${uploadClass}${folderName ? ` → „${folderName}"` : ''}!`);
+      setUploadDesc('');
+    }
+    if (firstError) setUploadError('Chyba pri nahrávaní: ' + firstError);
   }, [uploadClass, uploadDesc, uploadFolderId, uploadClassFolders, adminProfile]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -477,7 +469,7 @@ export default function AdminPage() {
       'application/vnd.ms-excel': ['.xls'],
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
     },
-    maxSize: MAX_FILE_SIZE, multiple: false, disabled: uploading || !uploadClass,
+    maxSize: MAX_FILE_SIZE, multiple: true, disabled: uploading || !uploadClass,
   });
 
   const filteredUsers = approved.filter(u => {
@@ -502,7 +494,6 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
 
-      {/* Profil modal — zmena hesla admina */}
       {showProfile && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" style={{ background: 'var(--overlay)' }}>
           <div className="rounded-3xl shadow-2xl w-full max-w-md p-6 relative animate-slide-up" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
@@ -562,7 +553,6 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Confirm modal */}
       {confirmModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" style={{ background: 'var(--overlay)' }}>
           <div className="rounded-3xl shadow-2xl w-full max-w-sm p-6 animate-slide-up" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
@@ -632,7 +622,6 @@ export default function AdminPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8">
-        {/* Export tlačidlo — vždy viditeľné, 31.8. červené */}
         <div className="mb-5 animate-fade-in flex items-center gap-3 flex-wrap">
           <button
             onClick={handleExportAll}
@@ -644,7 +633,7 @@ export default function AdminPage() {
             }
           >
             <Download size={15} style={{ color: isAugust31 ? 'white' : 'var(--accent-link)' }} />
-          {exporting ? 'Exportujem...' : isAugust31 ? '⚠️ Stiahnuť všetko ako ZIP (dnes sa maže!)' : 'Stiahnuť všetky súbory ako ZIP'}
+            {exporting ? 'Exportujem...' : isAugust31 ? '⚠️ Stiahnuť všetko ako ZIP (dnes sa maže!)' : 'Stiahnuť všetky súbory ako ZIP'}
           </button>
           {exportError && (
             <span className="text-sm flex items-center gap-1.5" style={{ color: '#ef4444' }}>
@@ -653,7 +642,6 @@ export default function AdminPage() {
           )}
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8 animate-slide-up">
           <StatCard color="amber" icon={<Clock size={18} />} label="Čakajúce žiadosti" value={pending.length + deletionRequests.length} hint="Na schválenie" />
           <StatCard color="blue" icon={<Users size={18} />} label="Schválení žiaci" value={approved.filter(u => u.status === 'approved').length} hint="Aktívni používatelia" />
@@ -661,7 +649,6 @@ export default function AdminPage() {
           <StatCard color="violet" icon={<Shield size={18} />} label="Aktívne triedy" value={uniqueClasses} hint="Rozdelenie používateľov" />
         </div>
 
-        {/* Tabs */}
         <div className="flex flex-wrap gap-1 mb-6 rounded-3xl p-1.5 shadow-card w-fit animate-fade-in" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           {TABS.map(t => (
             <button key={t} onClick={() => setTab(t)}
@@ -675,7 +662,6 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {/* ── Žiadosti ── */}
         {tab === 'Žiadosti' && (
           <div className="card shadow-card animate-fade-in">
             <h3 className="font-bold mb-5 flex items-center gap-2" style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', color: 'var(--text)' }}>
@@ -748,7 +734,6 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ── Žiaci ── */}
         {tab === 'Žiaci' && (
           <div className="card shadow-card hover:shadow-card-hover transition-all duration-150 animate-fade-in">
             <div className="flex flex-col sm:flex-row gap-3 mb-5">
@@ -817,10 +802,8 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ── Súbory ── */}
         {tab === 'Súbory' && (
           <div className="space-y-4 animate-fade-in">
-            {/* Nahrávanie + Priečinky v jednej karte */}
             <div className="card shadow-card hover:shadow-card-hover transition-all duration-150">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
@@ -828,7 +811,7 @@ export default function AdminPage() {
                 </div>
                 <div>
                   <h3 className="font-bold" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>Nahrať súbor do triedy</h3>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>PDF, obrázky, PowerPoint, Word, Excel • max 50 MB</p>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>PDF, obrázky, PowerPoint, Word, Excel • max 50 MB • viacero súborov naraz</p>
                 </div>
               </div>
 
@@ -848,7 +831,6 @@ export default function AdminPage() {
               </div>
 
               <div className={`grid gap-4 ${uploadClass ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
-                {/* Dropzone */}
                 <div className="flex flex-col gap-3">
                   {uploadClass && (
                     <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
@@ -869,12 +851,12 @@ export default function AdminPage() {
                     {uploading ? (
                       <div><div className="w-8 h-8 rounded-full animate-spin mx-auto mb-2" style={{ borderWidth: '3px', borderStyle: 'solid', borderColor: 'var(--accent-link)', borderTopColor: 'transparent' }} /><p className="font-semibold text-sm" style={{ color: 'var(--accent-link)' }}>Nahrávam...</p></div>
                     ) : isDragActive ? (
-                      <div><CloudUpload size={24} className="mx-auto mb-1" style={{ color: 'var(--accent-link)' }} /><p className="font-semibold text-sm" style={{ color: 'var(--accent-link)' }}>Pusti súbor sem!</p></div>
+                      <div><CloudUpload size={24} className="mx-auto mb-1" style={{ color: 'var(--accent-link)' }} /><p className="font-semibold text-sm" style={{ color: 'var(--accent-link)' }}>Pusti súbory sem!</p></div>
                     ) : (
                       <div>
                         <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: 'var(--surface-3)' }}><CloudUpload size={20} style={{ color: 'var(--accent-link)' }} /></div>
-                        <p className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Pretiahni súbor sem</p>
-                        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>alebo klikni pre výber zo zariadenia</p>
+                        <p className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Pretiahni súbory sem</p>
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>alebo klikni pre výber zo zariadenia (viacero naraz)</p>
                       </div>
                     )}
                   </div>
@@ -882,7 +864,6 @@ export default function AdminPage() {
                   {uploadSuccess && <div className="px-4 py-2.5 rounded-xl text-sm" style={{ background: 'rgba(5,150,105,0.1)', color: '#10b981', border: '1px solid rgba(5,150,105,0.25)' }}>✅ {uploadSuccess}</div>}
                 </div>
 
-                {/* Priečinkový panel */}
                 {uploadClass && (
                   <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
@@ -945,6 +926,14 @@ export default function AdminPage() {
 
             {/* Zoznam súborov */}
             <div className="card shadow-card hover:shadow-card-hover transition-all duration-200">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold text-sm" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>
+                  Všetky súbory
+                </h3>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}>
+                  {filteredFiles.length} / {files.length}
+                </span>
+              </div>
               <div className="flex flex-col sm:flex-row gap-3 mb-4">
                 <div className="input-with-icon flex-1">
                   <Search size={15} className="input-icon" />

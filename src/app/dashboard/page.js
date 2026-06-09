@@ -31,7 +31,9 @@ export default function Dashboard() {
   const [editPw, setEditPw] = useState('');
   const [editPwConfirm, setEditPwConfirm] = useState('');
   const [currentPw, setCurrentPw] = useState('');
-  const [showEditPw, setShowEditPw] = useState(false);
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState('');
@@ -100,9 +102,11 @@ export default function Dashboard() {
     }
   }
 
+  const [allFiles, setAllFiles] = useState([]);
+
   const globalSearch = search.trim().length > 0;
   const filteredFiles = globalSearch
-    ? files.filter(f =>
+    ? allFiles.filter(f =>
         f.original_name.toLowerCase().includes(search.toLowerCase()) ||
         (f.description || '').toLowerCase().includes(search.toLowerCase()) ||
         (`${f.profiles?.first_name} ${f.profiles?.last_name}`).toLowerCase().includes(search.toLowerCase())
@@ -163,16 +167,23 @@ export default function Dashboard() {
 
   async function loadFiles(className, limit = fileLimit) {
     try {
-      const { data: filesData, count, error: filesErr } = await supabase.from('files')
-        .select(`*, profiles(first_name, last_name)`, { count: 'exact' })
-        .eq('class', className).order('created_at', { ascending: false }).range(0, limit - 1);
-      if (filesErr) throw filesErr;
-      setFiles(filesData || []);
-      setHasMoreFiles((count || 0) > limit);
-      const { data: foldersData, error: foldersErr } = await supabase.from('folders')
-        .select('*').eq('class', className).order('name', { ascending: true });
-      if (foldersErr) throw foldersErr;
-      setFolders(foldersData || []);
+      const [filesRes, allFilesRes, foldersRes] = await Promise.all([
+        supabase.from('files')
+          .select(`*, profiles(first_name, last_name)`, { count: 'exact' })
+          .eq('class', className).order('created_at', { ascending: false }).range(0, limit - 1),
+        supabase.from('files')
+          .select(`*, profiles(first_name, last_name)`)
+          .eq('class', className).order('created_at', { ascending: false }),
+        supabase.from('folders')
+          .select('*').eq('class', className).order('name', { ascending: true }),
+      ]);
+      if (filesRes.error) throw filesRes.error;
+      if (allFilesRes.error) throw allFilesRes.error;
+      if (foldersRes.error) throw foldersRes.error;
+      setFiles(filesRes.data || []);
+      setAllFiles(allFilesRes.data || []);
+      setHasMoreFiles((filesRes.count || 0) > limit);
+      setFolders(foldersRes.data || []);
     } catch (err) {
       console.error('Error loading files:', err);
     }
@@ -315,7 +326,9 @@ export default function Dashboard() {
 
   function openProfile() {
     setShowUserMenu(false); setEditPw(''); setEditPwConfirm(''); setCurrentPw('');
-    setProfileError(''); setProfileSuccess(''); setShowProfile(true);
+    setProfileError(''); setProfileSuccess('');
+    setShowCurrentPw(false); setShowNewPw(false); setShowConfirmPw(false);
+    setShowProfile(true);
   }
 
 
@@ -557,12 +570,12 @@ export default function Dashboard() {
               <button onClick={() => setConfirmModal(null)}
                 className="flex-1 py-2.5 rounded-xl font-semibold text-sm"
                 style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
-                Zrusit
+                {confirmModal.danger ? 'Zrušiť' : 'Zatvoriť'}
               </button>
-              {confirmModal.onConfirm && (
+              {confirmModal.onConfirm && confirmModal.danger && (
                 <button onClick={() => { const fn = confirmModal.onConfirm; setConfirmModal(null); fn(); }}
                   className="flex-1 py-2.5 rounded-xl font-semibold text-sm text-white"
-                  style={{ background: confirmModal.danger ? 'linear-gradient(135deg,#dc2626,#ef4444)' : 'var(--accent-link)' }}>
+                  style={{ background: 'linear-gradient(135deg,#dc2626,#ef4444)' }}>
                   Potvrdit
                 </button>
               )}
@@ -653,26 +666,38 @@ export default function Dashboard() {
                   <div>
                     <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Aktualne heslo</label>
                     <div className="relative">
-                    <input type={showEditPw ? 'text' : 'password'} className="input-field pr-10"
+                    <input type={showCurrentPw ? 'text' : 'password'} className="input-field pr-10"
                         autoComplete="current-password"
                         placeholder="vase aktualne heslo" value={currentPw} onChange={e => setCurrentPw(e.target.value)} required />
-                      <button type="button" onClick={() => setShowEditPw(!showEditPw)}
+                      <button type="button" onClick={() => setShowCurrentPw(v => !v)}
                         className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
-                        {showEditPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                        {showCurrentPw ? <EyeOff size={15} /> : <Eye size={15} />}
                       </button>
                     </div>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Nove heslo</label>
-                    <input type={showEditPw ? 'text' : 'password'} className="input-field"
-                      autoComplete="new-password"
-                      placeholder="min. 6 znakov" value={editPw} onChange={e => setEditPw(e.target.value)} required />
+                    <div className="relative">
+                      <input type={showNewPw ? 'text' : 'password'} className="input-field pr-10"
+                        autoComplete="new-password"
+                        placeholder="min. 6 znakov" value={editPw} onChange={e => setEditPw(e.target.value)} required />
+                      <button type="button" onClick={() => setShowNewPw(v => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
+                        {showNewPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Zopakujte nove heslo</label>
-                    <input type={showEditPw ? 'text' : 'password'} className="input-field"
-                      autoComplete="new-password"
-                      placeholder="zopakujte heslo" value={editPwConfirm} onChange={e => setEditPwConfirm(e.target.value)} required />
+                    <div className="relative">
+                      <input type={showConfirmPw ? 'text' : 'password'} className="input-field pr-10"
+                        autoComplete="new-password"
+                        placeholder="zopakujte heslo" value={editPwConfirm} onChange={e => setEditPwConfirm(e.target.value)} required />
+                      <button type="button" onClick={() => setShowConfirmPw(v => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
+                        {showConfirmPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

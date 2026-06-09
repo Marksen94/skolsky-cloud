@@ -156,9 +156,8 @@ export default function RegisterPage() {
                 placeholder="••••••••" value={form.confirmPassword} onChange={handleChange} required />
             </div>
 
-            <div className="rounded-xl p-3 text-xs" style={{ background: 'rgba(180,100,0,0.12)', border: '1px solid rgba(180,100,0,0.3)', color: '#d97706' }}>
-              <span className="dark:hidden">⚠️ Po registrácii <strong>napíš správcovi</strong> (Instagram @rumont_sro) aby schválil tvoj účet.</span>
-              <span className="hidden dark:inline" style={{ color: '#fbbf24' }}>⚠️ Po registrácii <strong>napíš správcovi</strong> (Instagram @rumont_sro) aby schválil tvoj účet.</span>
+            <div className="rounded-xl p-3 text-xs" style={{ background: 'rgba(180,100,0,0.12)', border: '1px solid rgba(180,100,0,0.3)', color: 'var(--warning-text, #d97706)' }}>
+              ⚠️ Po registrácii <strong>napíš správcovi</strong> (Instagram @rumont_sro) aby schválil tvoj účet.
             </div>
 
             <button type="submit" disabled={loading} className="btn-primary w-full">
