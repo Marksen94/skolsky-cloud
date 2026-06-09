@@ -622,26 +622,6 @@ export default function AdminPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="mb-5 animate-fade-in flex items-center gap-3 flex-wrap">
-          <button
-            onClick={handleExportAll}
-            disabled={exporting}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-semibold text-sm transition-all duration-200 shadow-sm"
-            style={isAugust31
-              ? { background: 'linear-gradient(135deg,#dc2626,#ef4444)', color: 'white', border: '1px solid rgba(220,38,38,0.5)', boxShadow: '0 0 0 3px rgba(220,38,38,0.2)' }
-              : { background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }
-            }
-          >
-            <Download size={15} style={{ color: isAugust31 ? 'white' : 'var(--accent-link)' }} />
-            {exporting ? 'Exportujem...' : isAugust31 ? '⚠️ Stiahnuť všetko ako ZIP (dnes sa maže!)' : 'Stiahnuť všetky súbory ako ZIP'}
-          </button>
-          {exportError && (
-            <span className="text-sm flex items-center gap-1.5" style={{ color: '#ef4444' }}>
-              <AlertCircle size={14} /> {exportError}
-            </span>
-          )}
-        </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8 animate-slide-up">
           <StatCard color="amber" icon={<Clock size={18} />} label="Čakajúce žiadosti" value={pending.length + deletionRequests.length} hint="Na schválenie" />
           <StatCard color="blue" icon={<Users size={18} />} label="Schválení žiaci" value={approved.filter(u => u.status === 'approved').length} hint="Aktívni používatelia" />
@@ -804,6 +784,25 @@ export default function AdminPage() {
 
         {tab === 'Súbory' && (
           <div className="space-y-4 animate-fade-in">
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={handleExportAll}
+                disabled={exporting}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-semibold text-sm transition-all duration-200 shadow-sm"
+                style={isAugust31
+                  ? { background: 'linear-gradient(135deg,#dc2626,#ef4444)', color: 'white', border: '1px solid rgba(220,38,38,0.5)', boxShadow: '0 0 0 3px rgba(220,38,38,0.2)' }
+                  : { background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }
+                }
+              >
+                <Download size={15} style={{ color: isAugust31 ? 'white' : 'var(--accent-link)' }} />
+                {exporting ? 'Exportujem...' : isAugust31 ? '⚠️ Stiahnuť všetko ako ZIP (dnes sa maže!)' : 'Stiahnuť všetky súbory ako ZIP'}
+              </button>
+              {exportError && (
+                <span className="text-sm flex items-center gap-1.5" style={{ color: '#ef4444' }}>
+                  <AlertCircle size={14} /> {exportError}
+                </span>
+              )}
+            </div>
             <div className="card shadow-card hover:shadow-card-hover transition-all duration-150">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
