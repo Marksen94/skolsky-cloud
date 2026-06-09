@@ -289,21 +289,21 @@ export default function Dashboard() {
   async function saveProfile(e) {
     e.preventDefault();
     setProfileError(''); setProfileSuccess('');
-    if (!currentPw) { setProfileError('Zadajte aktualne heslo.'); return; }
-    if (!editPw) { setProfileError('Zadajte nove heslo.'); return; }
-    if (editPw.length < 6) { setProfileError('Nove heslo musi mat aspon 6 znakov.'); return; }
-    if (editPw !== editPwConfirm) { setProfileError('Hesla sa nezhoduju.'); return; }
+    if (!currentPw) { setProfileError('Zadajte aktuálne heslo.'); return; }
+    if (!editPw) { setProfileError('Zadajte nové heslo.'); return; }
+    if (editPw.length < 6) { setProfileError('Nové heslo musí mať aspoň 6 znakov.'); return; }
+    if (editPw !== editPwConfirm) { setProfileError('Heslá sa nezhodujú.'); return; }
     setProfileSaving(true);
     try {
       const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
       if (sessionErr) throw sessionErr;
       if (!session?.user?.email) { setProfileError('Relácia vypršala. Prihláste sa znova.'); setProfileSaving(false); return; }
       const { error: signInErr } = await supabase.auth.signInWithPassword({ email: session.user.email, password: currentPw });
-      if (signInErr) { setProfileError('Aktualne heslo je nespravne.'); setProfileSaving(false); return; }
+      if (signInErr) { setProfileError('Aktuálne heslo je nesprávne.'); setProfileSaving(false); return; }
       const { error: pwErr } = await supabase.auth.updateUser({ password: editPw });
       if (pwErr) { setProfileError('Heslo sa nepodarilo zmenit: ' + pwErr.message); setProfileSaving(false); return; }
       setCurrentPw(''); setEditPw(''); setEditPwConfirm('');
-      setProfileSuccess('Heslo bolo uspesne zmenene!');
+      setProfileSuccess('Heslo bolo úspešne zmenené!');
     } catch (err) {
       console.error(err);
       setProfileError('Nastala neočakávaná chyba.');
@@ -412,7 +412,6 @@ export default function Dashboard() {
         continue;
       }
 
-      if (inserted) setFiles(prev => [inserted, ...prev]);
       successCount++;
     }
 
@@ -430,6 +429,7 @@ export default function Dashboard() {
       setUploadSuccess(msg);
       if (messageTimeoutsRef.current.success) clearTimeout(messageTimeoutsRef.current.success);
       messageTimeoutsRef.current.success = setTimeout(() => setUploadSuccess(''), 4000);
+      await loadFiles(profile.class);
     }
   }, [profile, currentFolder, selectedFiles, uploading]);
 
@@ -462,6 +462,7 @@ export default function Dashboard() {
           const { error: dbErr } = await supabase.from('files').delete().eq('id', file.id);
           if (dbErr) throw dbErr;
           setFiles(prev => prev.filter(f => f.id !== file.id));
+          setAllFiles(prev => prev.filter(f => f.id !== file.id));
         } catch (err) {
           console.error('deleteFile error:', err);
           askConfirm({ title: 'Chyba', message: 'Súbor sa nepodarilo vymazať: ' + err.message, danger: false, onConfirm: () => {} });
@@ -489,7 +490,7 @@ export default function Dashboard() {
       {/* Fix 11 - Lightbox */}
       {lightboxFile && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center animate-fade-in"
-          style={{ background: 'rgba(0,0,0,0.92)' }}
+          style={{ background: 'rgba(0,0,0,0.92)', cursor: 'pointer' }}
           onClick={() => setLightboxFile(null)}>
           <button className="absolute top-4 right-4 w-10 h-10 rounded-2xl flex items-center justify-center z-10"
             style={{ background: 'rgba(255,255,255,0.12)', color: 'white' }}
@@ -564,16 +565,24 @@ export default function Dashboard() {
             <h3 className="font-bold text-lg mb-2" style={{ color: 'var(--text)' }}>{confirmModal.title}</h3>
             <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>{confirmModal.message}</p>
             <div className="flex gap-3">
-              <button onClick={() => setConfirmModal(null)}
-                className="flex-1 py-2.5 rounded-xl font-semibold text-sm"
-                style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
-                {confirmModal.danger ? 'Zrušiť' : 'Zatvoriť'}
-              </button>
-              {confirmModal.onConfirm && confirmModal.danger && (
-                <button onClick={() => { const fn = confirmModal.onConfirm; setConfirmModal(null); fn(); }}
-                  className="flex-1 py-2.5 rounded-xl font-semibold text-sm text-white"
-                  style={{ background: 'linear-gradient(135deg,#dc2626,#ef4444)' }}>
-                  Potvrdit
+              {confirmModal.danger ? (
+                <>
+                  <button onClick={() => setConfirmModal(null)}
+                    className="flex-1 py-2.5 rounded-xl font-semibold text-sm"
+                    style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                    Zrušiť
+                  </button>
+                  <button onClick={() => { const fn = confirmModal.onConfirm; setConfirmModal(null); fn(); }}
+                    className="flex-1 py-2.5 rounded-xl font-semibold text-sm text-white"
+                    style={{ background: 'linear-gradient(135deg,#dc2626,#ef4444)' }}>
+                    Potvrdiť
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setConfirmModal(null)}
+                  className="w-full py-2.5 rounded-xl font-semibold text-sm"
+                  style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                  Zatvoriť
                 </button>
               )}
             </div>
@@ -606,11 +615,11 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Zrusenie uctu</h2>
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Tato akcia vyzaduje schvalenie spravcu</p>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Táto akcia vyžaduje schválenie správcu</p>
                   </div>
                 </div>
                 <div className="rounded-xl p-4 mb-5 text-sm" style={{ background: 'rgba(200,32,10,0.07)', border: '1px solid rgba(200,32,10,0.2)', color: 'var(--text)' }}>
-                  Po schvaleni spravcom bude tvoj ucet a vsetky nahrane subory <strong>natrvalo vymazane</strong>. Tato akcia je nevratna.
+                  Po schválení správcom bude tvoj účet a všetky nahrané súbory <strong>natrvalo vymazané</strong>. Táto akcia je nevratná.
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setShowDeleteRequest(false)}
@@ -619,7 +628,7 @@ export default function Dashboard() {
                   <button onClick={requestDeletion}
                     className="flex-1 py-2.5 rounded-xl font-semibold text-sm text-white"
                     style={{ background: 'linear-gradient(135deg, #dc2626, #ef4444)' }}>
-                    Poziadat o zrusenie
+                    Požiadať o zrušenie
                   </button>
                 </div>
               </>
@@ -788,14 +797,14 @@ export default function Dashboard() {
           <h2 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>
             Trieda {profile?.class}
           </h2>
-          <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>{files.length} materialov zdielanych vasou triedou</p>
+          <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>{globalSearch ? `${filteredFiles.length} výsledkov hľadania` : `${filteredFiles.length} materiálov v tomto priečinku`}</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up">
           <StatCard icon={<BookOpen size={20} style={{ color: '#3b82f6' }} />} title="Subory" value={files.length} subtitle="celkom nahranych" color="blue" />
           <StatCard icon={<Folder size={20} style={{ color: '#f59e0b' }} />} title="Priecinky" value={folders.filter(f => !f.parent_id).length} subtitle="hlavnych priecinkov" color="amber" />
-          <StatCard icon={<CloudUpload size={20} style={{ color: '#10b981' }} />} title="Posledny upload" value={files.length > 0 ? new Date(files[0].created_at).toLocaleDateString('sk-SK', { day: '2-digit', month: 'short' }) : '--'} subtitle="datum posledneho" color="green" />
-          <StatCard icon={<Clock size={20} style={{ color: '#a855f7' }} />} title="Velkost" value={files.length > 0 ? formatFileSize(files.reduce((sum, f) => sum + (f.file_size || 0), 0)) : '0 B'} subtitle="vsetky subory spolu" color="purple" />
+          <StatCard icon={<CloudUpload size={20} style={{ color: '#10b981' }} />} title="Posledný upload" value={allFiles.length > 0 ? new Date(allFiles[0].created_at).toLocaleDateString('sk-SK', { day: '2-digit', month: 'short' }) : '--'} subtitle="dátum posledného" color="green" />
+          <StatCard icon={<Clock size={20} style={{ color: '#a855f7' }} />} title="Veľkosť" value={allFiles.length > 0 ? formatFileSize(allFiles.reduce((sum, f) => sum + (f.file_size || 0), 0)) : '0 B'} subtitle="všetky súbory spolu" color="purple" />
         </div>
 
         <div className="card shadow-card animate-slide-up">

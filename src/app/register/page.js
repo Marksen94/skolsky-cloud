@@ -10,6 +10,7 @@ import ThemeToggle from '@/app/components/ThemeToggle';
 export default function RegisterPage() {
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', confirmPassword: '', class: '' });
   const [showPw, setShowPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -151,9 +152,15 @@ export default function RegisterPage() {
 
             <div>
               <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Potvrdiť heslo *</label>
-              <input name="confirmPassword" type={showPw ? 'text' : 'password'} className="input-field"
-                autoComplete="new-password"
-                placeholder="••••••••" value={form.confirmPassword} onChange={handleChange} required />
+              <div className="relative">
+                <input name="confirmPassword" type={showConfirmPw ? 'text' : 'password'} className="input-field pr-12"
+                  autoComplete="new-password"
+                  placeholder="••••••••" value={form.confirmPassword} onChange={handleChange} required />
+                <button type="button" onClick={() => setShowConfirmPw(!showConfirmPw)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors" style={{ color: 'var(--text-muted)' }}>
+                  {showConfirmPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
             <div className="rounded-xl p-3 text-xs" style={{ background: 'rgba(180,100,0,0.12)', border: '1px solid rgba(180,100,0,0.3)', color: 'var(--warning-text, #d97706)' }}>

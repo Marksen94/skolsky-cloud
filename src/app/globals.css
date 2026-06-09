@@ -431,4 +431,4 @@ select.input-field {
 
 .animate-slide-up { animation: slide-up 0.5s ease-out forwards; }
 .animate-fade-in { animation: fade-in 0.3s ease-out; }
-.animate-slow-pulse { animation: slowPulse 4s ease-in-out infinite; }
+.animate-slow-pulse { animation: slowPulse 4s ease-in-out infinite; will-change: transform, opacity; }
