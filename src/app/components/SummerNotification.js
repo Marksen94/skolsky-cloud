@@ -18,18 +18,17 @@ export default function SummerNotification() {
 
     if (!isInSummer) return;
 
-    const todayKey = `summer_notice_dismissed_${now.getFullYear()}_${month}_${day}`;
+    const sessionKey = 'summer_notice_dismissed';
     try {
-      if (localStorage.getItem(todayKey)) return;
+      if (sessionStorage.getItem(sessionKey)) return;
     } catch {}
 
     setVisible(true);
   }, []);
 
   function dismiss() {
-    const now = new Date();
-    const todayKey = `summer_notice_dismissed_${now.getFullYear()}_${now.getMonth()}_${now.getDate()}`;
-    try { localStorage.setItem(todayKey, '1'); } catch {}
+    const sessionKey = 'summer_notice_dismissed';
+    try { sessionStorage.setItem(sessionKey, '1'); } catch {}
     setVisible(false);
   }
 
