@@ -631,7 +631,7 @@ export default function Dashboard() {
       {/* Profil Modal */}
       {showProfile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" style={{ background: 'var(--overlay)' }}>
-          <div className="rounded-3xl shadow-2xl w-full max-w-md p-6 relative animate-slide-up" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div className="rounded-3xl shadow-2xl w-full max-w-md p-6 relative animate-slide-up overflow-y-auto" style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '90vh' }}>
             <button onClick={() => setShowProfile(false)}
               className="absolute top-4 right-4 w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
               <X size={16} style={{ color: 'var(--text-muted)' }} />
@@ -1076,7 +1076,7 @@ function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview, 
         </div>
       )}
       <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+      <div className="text-xs min-w-0 mr-2" style={{ color: 'var(--text-muted)' }}>
           <p className="font-medium">{file.profiles?.first_name || ''} {file.profiles?.last_name || ''}</p>
           <div className="flex items-center gap-1 mt-0.5">
             <Clock size={10} /> <span>{date}</span>
