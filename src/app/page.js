@@ -100,9 +100,9 @@ export default function LoginPage() {
 
         {/* Svietiace kruhy */}
         <div className="absolute top-[-10%] right-[-8%] w-[480px] h-[480px] rounded-full opacity-20"
-          style={{ background: 'radial-gradient(circle, #C8200A 0%, transparent 65%)', animation: 'slowPulse 9s ease-in-out infinite' }} />
+          style={{ background: 'radial-gradient(circle, #C8200A 0%, transparent 65%)', animation: 'slowPulse 9s ease-in-out infinite', willChange: 'transform, opacity' }} />
         <div className="absolute bottom-[-15%] left-[-5%] w-[400px] h-[400px] rounded-full opacity-15"
-          style={{ background: 'radial-gradient(circle, #1565C0 0%, transparent 65%)', animation: 'slowPulse 7s ease-in-out infinite reverse' }} />
+          style={{ background: 'radial-gradient(circle, #1565C0 0%, transparent 65%)', animation: 'slowPulse 7s ease-in-out infinite reverse', willChange: 'transform, opacity' }} />
 
         {/* Červená čiara hore */}
         <div className="absolute top-0 left-0 right-0 h-[3px]"

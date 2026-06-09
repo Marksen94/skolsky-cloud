@@ -223,7 +223,7 @@ export default function Dashboard() {
   async function createFolder(e) {
     e.preventDefault();
     if (!newFolderName.trim()) return;
-    if (folderPath.length >= 3) { setFolderError('Max 3 urovne priecinkov.'); return; }
+    if (folderPath.length >= 3) { setFolderError('Max 3 úrovne priečinkov.'); return; }
     setFolderSaving(true); setFolderError('');
     try {
       const { error } = await supabase.from('folders').insert({
@@ -479,7 +479,7 @@ export default function Dashboard() {
       <div className="text-center">
         <div className="w-10 h-10 border-t-transparent rounded-full animate-spin mx-auto mb-3"
           style={{ borderWidth: '3px', borderStyle: 'solid', borderColor: 'var(--accent-link)', borderTopColor: 'transparent' }} />
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Nacitavam...</p>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Načítavam...</p>
       </div>
     </div>
   );
@@ -541,13 +541,13 @@ export default function Dashboard() {
             <button onClick={() => { setMobileMenuOpen(false); setShowDeleteRequest(true); }}
               className="flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left font-semibold"
               style={{ background: 'rgba(200,32,10,0.1)', border: '1px solid rgba(200,32,10,0.2)', color: '#ef4444' }}>
-              <UserX size={18} /> Zrusenie uctu
+              <UserX size={18} /> Zrušenie účtu
             </button>
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', margin: '8px 0' }} />
             <button onClick={async () => { setMobileMenuOpen(false); await supabase.auth.signOut(); router.push('/'); }}
               className="flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left font-semibold text-white"
               style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <LogOut size={18} style={{ color: 'rgba(255,255,255,0.6)' }} /> Odhlasit
+              <LogOut size={18} style={{ color: 'rgba(255,255,255,0.6)' }} /> Odhlásiť
             </button>
           </div>
           <div className="absolute bottom-8 left-0 right-0 flex justify-center">
@@ -603,9 +603,9 @@ export default function Dashboard() {
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(5,150,105,0.12)' }}>
                   <CheckCircle size={28} style={{ color: '#10b981' }} />
                 </div>
-                <h2 className="text-lg font-bold mb-2" style={{ color: 'var(--text)' }}>Ziadost odoslana</h2>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Spravca skoly dostane tvoju ziadost o zrusenie uctu a rozhodne o nej co najskor.</p>
-                <button onClick={() => { setShowDeleteRequest(false); setDeleteRequestSent(false); }} className="btn-primary w-full mt-5">Zatvorit</button>
+                <h2 className="text-lg font-bold mb-2" style={{ color: 'var(--text)' }}>Žiadosť odoslaná</h2>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Správca školy dostane tvoju žiadosť o zrušenie účtu a rozhodne o nej čo najskôr.</p>
+                <button onClick={() => { setShowDeleteRequest(false); setDeleteRequestSent(false); }} className="btn-primary w-full mt-5">Zatvoriť</button>
               </div>
             ) : (
               <>
@@ -614,7 +614,7 @@ export default function Dashboard() {
                     <UserX size={22} style={{ color: '#ef4444' }} />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Zrusenie uctu</h2>
+                    <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Zrušenie účtu</h2>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Táto akcia vyžaduje schválenie správcu</p>
                   </div>
                 </div>
@@ -624,7 +624,7 @@ export default function Dashboard() {
                 <div className="flex gap-2">
                   <button onClick={() => setShowDeleteRequest(false)}
                     className="flex-1 py-2.5 rounded-xl font-semibold text-sm"
-                    style={{ background: 'var(--surface-2)', color: 'var(--text)' }}>Zrusit</button>
+                    style={{ background: 'var(--surface-2)', color: 'var(--text)' }}>Zrušiť</button>
                   <button onClick={requestDeletion}
                     className="flex-1 py-2.5 rounded-xl font-semibold text-sm text-white"
                     style={{ background: 'linear-gradient(135deg, #dc2626, #ef4444)' }}>
@@ -650,7 +650,7 @@ export default function Dashboard() {
                 <User size={22} style={{ color: 'var(--text)' }} />
               </div>
               <div>
-                <h2 className="text-xl font-bold" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>Moj profil</h2>
+                <h2 className="text-xl font-bold" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>Môj profil</h2>
                 <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Trieda {profile?.class}</p>
               </div>
             </div>
@@ -665,16 +665,16 @@ export default function Dashboard() {
                   <input type="text" className="input-field" value={profile?.last_name || ''} disabled />
                 </div>
               </div>
-              <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Meno moze zmenit iba spravca skoly.</p>
+              <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Meno môže zmeniť iba správca školy.</p>
               <div className="border-t" style={{ borderColor: 'var(--border)' }}>
                 <div className="pt-3 space-y-3">
                   <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Zmena hesla</p>
                   <div>
-                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Aktualne heslo</label>
+                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Aktuálne heslo</label>
                     <div className="relative">
                     <input type={showCurrentPw ? 'text' : 'password'} className="input-field pr-10"
                         autoComplete="current-password"
-                        placeholder="vase aktualne heslo" value={currentPw} onChange={e => setCurrentPw(e.target.value)} required />
+                        placeholder="vaše aktuálne heslo" value={currentPw} onChange={e => setCurrentPw(e.target.value)} required />
                       <button type="button" onClick={() => setShowCurrentPw(v => !v)}
                         className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
                         {showCurrentPw ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -682,7 +682,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Nove heslo</label>
+                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Nové heslo</label>
                     <div className="relative">
                       <input type={showNewPw ? 'text' : 'password'} className="input-field pr-10"
                         autoComplete="new-password"
@@ -694,7 +694,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Zopakujte nove heslo</label>
+                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Zopakujte nové heslo</label>
                     <div className="relative">
                       <input type={showConfirmPw ? 'text' : 'password'} className="input-field pr-10"
                         autoComplete="new-password"
@@ -718,7 +718,7 @@ export default function Dashboard() {
                 </div>
               )}
               <button type="submit" disabled={profileSaving} className="btn-primary w-full flex items-center justify-center gap-2">
-                {profileSaving ? 'Ukladam...' : 'Zmenit heslo'}
+                {profileSaving ? 'Ukladám...' : 'Zmeniť heslo'}
               </button>
             </form>
           </div>
@@ -771,7 +771,7 @@ export default function Dashboard() {
                     style={{ color: '#ef4444' }}
                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(200,32,10,0.08)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <UserX size={15} /> Zrusenie uctu
+                    <UserX size={15} /> Zrušenie účtu
                   </button>
                 </div>
               )}
@@ -780,7 +780,7 @@ export default function Dashboard() {
               <ThemeToggle />
               <button onClick={async () => { await supabase.auth.signOut(); router.push('/'); }}
                 className="flex items-center gap-1.5 text-blue-200 hover:text-white transition-colors text-sm">
-                <LogOut size={15} /> Odhlasit
+                <LogOut size={15} /> Odhlásiť
               </button>
             </div>
             <button onClick={() => setMobileMenuOpen(true)}
@@ -801,8 +801,8 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up">
-          <StatCard icon={<BookOpen size={20} style={{ color: '#3b82f6' }} />} title="Subory" value={files.length} subtitle="celkom nahranych" color="blue" />
-          <StatCard icon={<Folder size={20} style={{ color: '#f59e0b' }} />} title="Priecinky" value={folders.filter(f => !f.parent_id).length} subtitle="hlavnych priecinkov" color="amber" />
+          <StatCard icon={<BookOpen size={20} style={{ color: '#3b82f6' }} />} title="Súbory" value={allFiles.length} subtitle="celkom nahraných" color="blue" />
+          <StatCard icon={<Folder size={20} style={{ color: '#f59e0b' }} />} title="Priečinky" value={folders.filter(f => !f.parent_id).length} subtitle="hlavných priečinkov" color="amber" />
           <StatCard icon={<CloudUpload size={20} style={{ color: '#10b981' }} />} title="Posledný upload" value={allFiles.length > 0 ? new Date(allFiles[0].created_at).toLocaleDateString('sk-SK', { day: '2-digit', month: 'short' }) : '--'} subtitle="dátum posledného" color="green" />
           <StatCard icon={<Clock size={20} style={{ color: '#a855f7' }} />} title="Veľkosť" value={allFiles.length > 0 ? formatFileSize(allFiles.reduce((sum, f) => sum + (f.file_size || 0), 0)) : '0 B'} subtitle="všetky súbory spolu" color="purple" />
         </div>
@@ -813,8 +813,8 @@ export default function Dashboard() {
               <CloudUpload size={18} style={{ color: 'var(--accent-link)' }} />
             </div>
             <div>
-              <h3 className="font-bold text-lg" style={{ color: 'var(--text)' }}>Nahrat novy subor</h3>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>PDF, obrazky, PowerPoint, Word, Excel - max 50 MB</p>
+              <h3 className="font-bold text-lg" style={{ color: 'var(--text)' }}>Nahrať nový súbor</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>PDF, obrázky, PowerPoint, Word, Excel – max 50 MB</p>
             </div>
           </div>
           <div {...getRootProps()} className={`border-2 border-dashed rounded-2xl p-4 sm:p-8 text-center cursor-pointer transition-all duration-300
@@ -854,15 +854,15 @@ export default function Dashboard() {
             ) : isDragActive ? (
               <div className="flex flex-col items-center">
                 <Upload size={28} style={{ color: 'var(--accent-link)' }} className="mb-2" />
-                <p className="font-semibold text-base" style={{ color: 'var(--accent-link)' }}>Pusti subor sem!</p>
+                <p className="font-semibold text-base" style={{ color: 'var(--accent-link)' }}>Pusti súbor sem!</p>
               </div>
             ) : (
               <div className="flex flex-col items-center">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--surface-2)' }}>
                   <Upload size={28} style={{ color: 'var(--accent-link)' }} />
                 </div>
-                <p className="font-semibold text-base" style={{ color: 'var(--text)' }}>Pretiahni subor sem</p>
-                <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>alebo klikni pre vyber zo zariadenia</p>
+                <p className="font-semibold text-base" style={{ color: 'var(--text)' }}>Pretiahni súbor sem</p>
+                <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>alebo klikni pre výber zo zariadenia</p>
               </div>
             )}
           </div>
@@ -892,7 +892,7 @@ export default function Dashboard() {
                 <FolderOpen size={16} style={{ color: 'var(--accent-link)' }} />
               </div>
               <h3 className="font-bold" style={{ color: 'var(--text)' }}>
-                {globalSearch ? `Vysledky hladania "${search}"` : 'Priecinky a subory triedy'}
+                {globalSearch ? `Výsledky hľadania "${search}"` : 'Priečinky a súbory triedy'}
               </h3>
             </div>
             <div className="flex items-center gap-2">
@@ -900,13 +900,13 @@ export default function Dashboard() {
                 <button onClick={() => { setShowCreateFolder(true); setFolderError(''); setNewFolderName(''); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold flex-shrink-0"
                   style={{ background: 'var(--surface-2)', color: 'var(--accent-link)' }}>
-                  <FolderPlus size={13} /> Novy priecinok
+                  <FolderPlus size={13} /> Nový priečinok
                 </button>
               )}
               <div className="input-with-icon flex-1" style={{ minWidth: 0 }}>
                 <Search size={15} className="input-icon" />
                 <input className="input-inner text-sm" style={{ width: '100%' }}
-                  placeholder="Hladaj..."
+                  placeholder="Hľadaj..."
                   value={search} onChange={e => setSearch(e.target.value)} />
                 {globalSearch && (
                   <button onClick={() => setSearch('')} className="flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
@@ -967,7 +967,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-5">
               {visibleFolders.map(folder => {
                 const childCount = folders.filter(f => f.parent_id === folder.id).length;
-                const fileCount = files.filter(f => f.folder_id === folder.id).length;
+                const fileCount = allFiles.filter(f => f.folder_id === folder.id).length;
                 return (
                   <FolderCard key={folder.id} folder={folder} childCount={childCount} fileCount={fileCount}
                     isOwner={folder.created_by === profile?.id}
@@ -1055,7 +1055,7 @@ function FolderCard({ folder, childCount, fileCount, isOwner, onOpen, onDelete }
         <p className="font-semibold text-sm leading-tight line-clamp-2 mb-1" style={{ color: 'var(--text)' }}>{folder.name}</p>
         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
           {childCount > 0 && `${childCount} podpriec. `}{fileCount > 0 && `${fileCount} sub.`}
-          {childCount === 0 && fileCount === 0 && 'Prazdny'}
+          {childCount === 0 && fileCount === 0 && 'Prázdny'}
         </p>
       </button>
     </div>
@@ -1097,13 +1097,13 @@ function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview, 
             <button onClick={() => onPreview(file)}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
               style={{ background: 'rgba(139,92,246,0.12)', color: '#a855f7' }}>
-              <ZoomIn size={12} /> Nahlad
+              <ZoomIn size={12} /> Náhľad
             </button>
           )}
           <button onClick={onDownload}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
             style={{ background: 'rgba(26,58,107,0.15)', color: 'var(--accent-link)' }}>
-            <Download size={12} /> Stiahnut
+            <Download size={12} /> Stiahnuť
           </button>
         </div>
       </div>
