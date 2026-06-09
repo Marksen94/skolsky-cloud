@@ -488,7 +488,7 @@ export default function Dashboard() {
 
       {/* Fix 11 - Lightbox */}
       {lightboxFile && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center animate-fade-in"
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center animate-fade-in"
           style={{ background: 'rgba(0,0,0,0.92)' }}
           onClick={() => setLightboxFile(null)}>
           <button className="absolute top-4 right-4 w-10 h-10 rounded-2xl flex items-center justify-center z-10"
