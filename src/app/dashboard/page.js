@@ -7,7 +7,6 @@ import { supabase, MAX_FILE_SIZE, ALLOWED_TYPES, formatFileSize, getFileIcon, ge
 import { useDropzone } from 'react-dropzone';
 import { Upload, LogOut, Trash2, Download, Clock, User, CloudUpload, BookOpen, Search, AlertCircle, FolderOpen, X, Eye, EyeOff, CheckCircle, Folder, ChevronRight, FolderPlus, KeyRound, UserX, ChevronDown, ZoomIn, Menu } from 'lucide-react';
 import ThemeToggle from '@/app/components/ThemeToggle';
-import SummerNotification from '@/app/components/SummerNotification';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -486,8 +485,6 @@ export default function Dashboard() {
 
   return (
     <div style={{ background: 'var(--bg)' }}>
-
-      <SummerNotification />
 
       {/* Fix 11 - Lightbox */}
       {lightboxFile && (

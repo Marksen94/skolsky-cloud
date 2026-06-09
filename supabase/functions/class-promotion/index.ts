@@ -46,7 +46,8 @@ Deno.serve(async (req: Request) => {
     const { data: students, error: fetchErr } = await supabase
       .from('profiles')
       .select('id, first_name, last_name, class, status')
-      .eq('is_admin', false);
+      .eq('is_admin', false)
+      .eq('status', 'approved');
 
     if (fetchErr) throw new Error('Chyba pri načítaní žiakov: ' + fetchErr.message);
 

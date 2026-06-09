@@ -70,9 +70,10 @@ export async function GET(request) {
       const arrayBuffer = await blob.arrayBuffer();
       const fileData = new Uint8Array(arrayBuffer);
 
-      const dir = (file.class || 'neznama-trieda').replace(/[/\\:*?"<>|]/g, '_');
-      const safeName = (file.original_name || 'subor').replace(/[/\\:*?"<>|]/g, '_');
-      const entryName = `${dir}/${safeName}`;
+      const dir = (file.class || 'neznama-trieda').replace(/[\/\\:*?"<>|]/g, '_');
+      const safeName = (file.original_name || 'subor').replace(/[\/\\:*?"<>|]/g, '_');
+      const uniquePrefix = file.id ? file.id.slice(0, 8) + '_' : '';
+      const entryName = `${dir}/${uniquePrefix}${safeName}`;
       const nameBytes = new TextEncoder().encode(entryName);
 
       const crc = crc32(fileData);
