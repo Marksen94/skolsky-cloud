@@ -1,17 +1,75 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { supabase, MAX_FILE_SIZE, ALLOWED_TYPES, formatFileSize, getFileIcon, getSignedUrl } from '@/lib/supabase';
 import { useDropzone } from 'react-dropzone';
-import { Upload, LogOut, Trash2, Download, Clock, User, CloudUpload, BookOpen, Search, AlertCircle, FolderOpen, X, Eye, EyeOff, CheckCircle, Folder, ChevronRight, FolderPlus, KeyRound, UserX, ChevronDown, ZoomIn, Menu } from 'lucide-react';
+import {
+  Upload, LogOut, Trash2, Download, Clock, User, CloudUpload, BookOpen,
+  Search, AlertCircle, FolderOpen, X, Eye, EyeOff, CheckCircle, Folder,
+  ChevronRight, FolderPlus, KeyRound, UserX, ChevronDown, ZoomIn, Menu,
+  Star, BarChart2, ArrowUpDown, Filter, MoveRight, Pencil, Bell,
+  CheckSquare, Square, PackageOpen, SortAsc, SortDesc,
+} from 'lucide-react';
 import ThemeToggle from '@/app/components/ThemeToggle';
 
+// ─── KONŠTANTY ────────────────────────────────────────────────────────────────
+const SORT_OPTIONS = [
+  { value: 'date_desc', label: 'Najnovšie' },
+  { value: 'date_asc', label: 'Najstaršie' },
+  { value: 'name_asc', label: 'Názov A–Z' },
+  { value: 'name_desc', label: 'Názov Z–A' },
+  { value: 'size_desc', label: 'Veľkosť ↓' },
+  { value: 'size_asc', label: 'Veľkosť ↑' },
+  { value: 'author_asc', label: 'Autor A–Z' },
+];
+
+const TYPE_FILTERS = [
+  { value: '', label: 'Všetky typy' },
+  { value: 'pdf', label: '📕 PDF' },
+  { value: 'image', label: '🖼️ Obrázky' },
+  { value: 'presentation', label: '📊 PowerPoint' },
+  { value: 'word', label: '📝 Word' },
+  { value: 'spreadsheet', label: '📈 Excel' },
+];
+
+function matchesTypeFilter(file, typeFilter) {
+  if (!typeFilter) return true;
+  const t = file.file_type || '';
+  if (typeFilter === 'pdf') return t.includes('pdf');
+  if (typeFilter === 'image') return t.startsWith('image/');
+  if (typeFilter === 'presentation') return t.includes('presentation') || t.includes('powerpoint');
+  if (typeFilter === 'word') return t.includes('word') || t === 'application/msword';
+  if (typeFilter === 'spreadsheet') return t.includes('excel') || t.includes('spreadsheet');
+  return true;
+}
+
+function sortFiles(files, sortKey) {
+  return [...files].sort((a, b) => {
+    switch (sortKey) {
+      case 'date_desc': return new Date(b.created_at) - new Date(a.created_at);
+      case 'date_asc':  return new Date(a.created_at) - new Date(b.created_at);
+      case 'name_asc':  return a.original_name.localeCompare(b.original_name, 'sk');
+      case 'name_desc': return b.original_name.localeCompare(a.original_name, 'sk');
+      case 'size_desc': return (b.file_size || 0) - (a.file_size || 0);
+      case 'size_asc':  return (a.file_size || 0) - (b.file_size || 0);
+      case 'author_asc': {
+        const nameA = `${a.profiles?.first_name} ${a.profiles?.last_name}`;
+        const nameB = `${b.profiles?.first_name} ${b.profiles?.last_name}`;
+        return nameA.localeCompare(nameB, 'sk');
+      }
+      default: return 0;
+    }
+  });
+}
+
+// ─── HLAVNÁ STRÁNKA ───────────────────────────────────────────────────────────
 export default function Dashboard() {
   const router = useRouter();
   const [profile, setProfile] = useState(null);
   const [files, setFiles] = useState([]);
+  const [allFiles, setAllFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -23,10 +81,15 @@ export default function Dashboard() {
   const userMenuBtnRef = useRef(null);
   const messageTimeoutsRef = useRef({});
 
+  // ─── Modaly / panely ───
   const [showProfile, setShowProfile] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showDeleteRequest, setShowDeleteRequest] = useState(false);
   const [deleteRequestSent, setDeleteRequestSent] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // ─── Heslo ───
   const [editPw, setEditPw] = useState('');
   const [editPwConfirm, setEditPwConfirm] = useState('');
   const [currentPw, setCurrentPw] = useState('');
@@ -37,6 +100,7 @@ export default function Dashboard() {
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState('');
 
+  // ─── Priečinky ───
   const [folders, setFolders] = useState([]);
   const [currentFolder, setCurrentFolder] = useState(null);
   const [folderPath, setFolderPath] = useState([]);
@@ -45,72 +109,255 @@ export default function Dashboard() {
   const [folderSaving, setFolderSaving] = useState(false);
   const [folderError, setFolderError] = useState('');
 
+  // ─── Premenovanie priečinka ───
+  const [renamingFolder, setRenamingFolder] = useState(null); // { id, name }
+  const [renameFolderName, setRenameFolderName] = useState('');
+  const [renameFolderSaving, setRenameFolderSaving] = useState(false);
+  const [renameFolderError, setRenameFolderError] = useState('');
+
+  // ─── Presun súboru ───
+  const [moveFileModal, setMoveFileModal] = useState(null); // file object
+  const [moveTargetFolderId, setMoveTargetFolderId] = useState('');
+  const [moveSaving, setMoveSaving] = useState(false);
+  const [moveError, setMoveError] = useState('');
+
+  // ─── Obľúbené ───
+  const [favorites, setFavorites] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sc_favorites') || '[]'); } catch { return []; }
+  });
+  const [showFavorites, setShowFavorites] = useState(false);
+
+  // ─── Notifikácie ───
+  const [notifCount, setNotifCount] = useState(0);
+  const [lastSeenAt, setLastSeenAt] = useState(() => {
+    try { return localStorage.getItem('sc_last_seen') || null; } catch { return null; }
+  });
+
+  // ─── Zoraďovanie a filtrovanie ───
+  const [sortKey, setSortKey] = useState('date_desc');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showTypeMenu, setShowTypeMenu] = useState(false);
+  const sortMenuRef = useRef(null);
+  const typeMenuRef = useRef(null);
+
+  // ─── Bulk akcie ───
+  const [bulkSelected, setBulkSelected] = useState(new Set());
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkDownloading, setBulkDownloading] = useState(false);
+
+  // ─── Lightbox ───
+  const [lightboxFile, setLightboxFile] = useState(null);
+
+  // ─── Paginacia ───
+  const [selectedFiles, setSelectedFiles] = useState([]); // upload front
+  const [fileLimit, setFileLimit] = useState(20);
+  const [hasMoreFiles, setHasMoreFiles] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // ─── Confirm modal ───
   const [confirmModal, setConfirmModal] = useState(null);
   function askConfirm({ title, message, danger = true, onConfirm }) {
     setConfirmModal({ title, message, danger, onConfirm });
   }
 
-  // Fix 11 - lightbox
-  const [lightboxFile, setLightboxFile] = useState(null);
-
-  // Escape klávesa zatvorí lightbox
-  useEffect(() => {
-    if (!lightboxFile) return;
-    function onKey(e) { if (e.key === 'Escape') setLightboxFile(null); }
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [lightboxFile]);
-
-  // Fix 10 - mobile menu
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [fileLimit, setFileLimit] = useState(20);
-  const [hasMoreFiles, setHasMoreFiles] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-
-  // Otvorí lightbox — vygeneruje signed URL pred zobrazením
-  async function openLightbox(file) {
-    try {
-      const signedUrl = await getSignedUrl(file.file_name, 600);
-      if (!signedUrl) {
-        askConfirm({ title: 'Chyba', message: 'Podpísaný URL sa nepodarilo vygenerovať.', danger: false, onConfirm: () => {} });
-        return;
-      }
-      setLightboxFile({ ...file, signedUrl });
-    } catch (err) {
-      console.error('Error opening lightbox:', err);
-      askConfirm({ title: 'Chyba', message: 'Náhľad obrázka sa nepodarilo načítať: ' + err.message, danger: false, onConfirm: () => {} });
-    }
-  }
-
-  // Stiahne súbor cez signed URL
-  async function downloadFile(file) {
-    try {
-      const url = await getSignedUrl(file.file_name, 120);
-      if (!url) return;
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = file.original_name;
-      a.target = '_blank';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch (err) {
-      console.error('Error downloading file:', err);
-    }
-  }
-
-  const [allFiles, setAllFiles] = useState([]);
-
+  // ══════════════════════════════════════════════════════════
+  // COMPUTED – filtrovanie + zoraďovanie
+  // ══════════════════════════════════════════════════════════
   const globalSearch = search.trim().length > 0;
-  const filteredFiles = globalSearch
-    ? allFiles.filter(f =>
+
+  const filteredFiles = useMemo(() => {
+    let base;
+    if (showFavorites) {
+      base = allFiles.filter(f => favorites.includes(f.id));
+    } else if (globalSearch) {
+      base = allFiles.filter(f =>
         f.original_name.toLowerCase().includes(search.toLowerCase()) ||
         (f.description || '').toLowerCase().includes(search.toLowerCase()) ||
         (`${f.profiles?.first_name} ${f.profiles?.last_name}`).toLowerCase().includes(search.toLowerCase())
-      )
-    : files.filter(f => (f.folder_id || null) === (currentFolder ? currentFolder.id : null));
+      );
+    } else {
+      base = files.filter(f => (f.folder_id || null) === (currentFolder ? currentFolder.id : null));
+    }
+    if (typeFilter) base = base.filter(f => matchesTypeFilter(f, typeFilter));
+    return sortFiles(base, sortKey);
+  }, [showFavorites, globalSearch, search, files, allFiles, currentFolder, typeFilter, sortKey, favorites]);
+
+  // ══════════════════════════════════════════════════════════
+  // NOTIFIKÁCIE – real-time cez Supabase channel
+  // ══════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (!profile) return;
+    // Počet nových súborov od posledného navštívenia
+    if (lastSeenAt) {
+      const count = allFiles.filter(f =>
+        f.uploaded_by !== profile.id &&
+        new Date(f.created_at) > new Date(lastSeenAt)
+      ).length;
+      setNotifCount(count);
+    }
+  }, [allFiles, profile, lastSeenAt]);
+
+  useEffect(() => {
+    if (!profile) return;
+    const channel = supabase
+      .channel(`class-files-${profile.class}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'files',
+        filter: `class=eq.${profile.class}`,
+      }, payload => {
+        if (payload.new.uploaded_by !== profile.id) {
+          setNotifCount(prev => prev + 1);
+          setAllFiles(prev => [{ ...payload.new, profiles: null }, ...prev]);
+          setFiles(prev => [{ ...payload.new, profiles: null }, ...prev]);
+        }
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [profile]);
+
+  function markNotifSeen() {
+    const now = new Date().toISOString();
+    setLastSeenAt(now);
+    setNotifCount(0);
+    try { localStorage.setItem('sc_last_seen', now); } catch {}
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // OBĽÚBENÉ
+  // ══════════════════════════════════════════════════════════
+  function toggleFavorite(fileId) {
+    setFavorites(prev => {
+      const next = prev.includes(fileId)
+        ? prev.filter(id => id !== fileId)
+        : [...prev, fileId];
+      try { localStorage.setItem('sc_favorites', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // BULK AKCIE
+  // ══════════════════════════════════════════════════════════
+  function toggleBulkSelect(fileId) {
+    setBulkSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(fileId)) next.delete(fileId);
+      else next.add(fileId);
+      return next;
+    });
+  }
+
+  function selectAllVisible() {
+    setBulkSelected(new Set(filteredFiles.map(f => f.id)));
+  }
+
+  function clearBulkSelection() {
+    setBulkSelected(new Set());
+    setBulkMode(false);
+  }
+
+  async function bulkDownload() {
+    if (bulkSelected.size === 0) return;
+    setBulkDownloading(true);
+    const toDownload = allFiles.filter(f => bulkSelected.has(f.id));
+    for (const file of toDownload) {
+      try {
+        const url = await getSignedUrl(file.file_name, 120);
+        if (!url) continue;
+        await new Promise(res => setTimeout(res, 300)); // throttle
+        const a = document.createElement('a');
+        a.href = url; a.download = file.original_name; a.target = '_blank';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      } catch {}
+    }
+    setBulkDownloading(false);
+  }
+
+  function bulkDelete() {
+    const toDelete = allFiles.filter(f => bulkSelected.has(f.id) && f.uploaded_by === profile.id);
+    const notOwned = bulkSelected.size - toDelete.length;
+    if (toDelete.length === 0) {
+      askConfirm({ title: 'Chyba', message: 'Môžeš vymazať iba vlastné súbory.', danger: false, onConfirm: () => {} });
+      return;
+    }
+    askConfirm({
+      title: `Vymazať ${toDelete.length} súbor${toDelete.length > 1 ? 'ov' : ''}?`,
+      message: `${toDelete.length} súbor${toDelete.length > 1 ? 'ov' : ''} bude natrvalo vymazaných.${notOwned > 0 ? ` (${notOwned} cudzie súbory preskočené)` : ''}`,
+      onConfirm: async () => {
+        for (const file of toDelete) {
+          try {
+            await supabase.storage.from('class-files').remove([file.file_name]);
+            await supabase.from('files').delete().eq('id', file.id);
+          } catch {}
+        }
+        const ids = new Set(toDelete.map(f => f.id));
+        setFiles(prev => prev.filter(f => !ids.has(f.id)));
+        setAllFiles(prev => prev.filter(f => !ids.has(f.id)));
+        clearBulkSelection();
+      },
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // PRESUN SÚBORU
+  // ══════════════════════════════════════════════════════════
+  async function moveFile() {
+    if (!moveFileModal) return;
+    setMoveSaving(true); setMoveError('');
+    try {
+      const newFolderId = moveTargetFolderId === '__root__' ? null : (moveTargetFolderId || null);
+      const { error } = await supabase.from('files')
+        .update({ folder_id: newFolderId })
+        .eq('id', moveFileModal.id);
+      if (error) throw error;
+      setFiles(prev => prev.map(f => f.id === moveFileModal.id ? { ...f, folder_id: newFolderId } : f));
+      setAllFiles(prev => prev.map(f => f.id === moveFileModal.id ? { ...f, folder_id: newFolderId } : f));
+      setMoveFileModal(null);
+    } catch (err) {
+      setMoveError('Chyba: ' + err.message);
+    } finally {
+      setMoveSaving(false);
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // PREMENOVANIE PRIEČINKA
+  // ══════════════════════════════════════════════════════════
+  async function saveRenameFolder(e) {
+    e.preventDefault();
+    if (!renameFolderName.trim() || !renamingFolder) return;
+    setRenameFolderSaving(true); setRenameFolderError('');
+    try {
+      const { error } = await supabase.from('folders')
+        .update({ name: renameFolderName.trim() })
+        .eq('id', renamingFolder.id);
+      if (error) throw error;
+      setFolders(prev => prev.map(f => f.id === renamingFolder.id ? { ...f, name: renameFolderName.trim() } : f));
+      // Update folderPath ak sme v tomto priečinku
+      setFolderPath(prev => prev.map(f => f.id === renamingFolder.id ? { ...f, name: renameFolderName.trim() } : f));
+      if (currentFolder?.id === renamingFolder.id) {
+        setCurrentFolder(prev => ({ ...prev, name: renameFolderName.trim() }));
+      }
+      setRenamingFolder(null);
+    } catch (err) {
+      setRenameFolderError('Chyba: ' + err.message);
+    } finally {
+      setRenameFolderSaving(false);
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // ZATVÁRANIE DROPDOWNOV KLIKNUTÍM VON
+  // ══════════════════════════════════════════════════════════
+  useEffect(() => {
+    function handle(e) {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(e.target)) setShowSortMenu(false);
+      if (typeMenuRef.current && !typeMenuRef.current.contains(e.target)) setShowTypeMenu(false);
+    }
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, []);
 
   useEffect(() => {
     if (!showUserMenu) return;
@@ -134,17 +381,25 @@ export default function Dashboard() {
   useEffect(() => { loadUser(); }, []);
 
   useEffect(() => {
-    const isOverlayOpen = !!(mobileMenuOpen || lightboxFile || showProfile || confirmModal || showDeleteRequest);
-    if (isOverlayOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [mobileMenuOpen, lightboxFile, showProfile, confirmModal, showDeleteRequest]);
+    const isOverlayOpen = !!(
+      mobileMenuOpen || lightboxFile || showProfile || confirmModal ||
+      showDeleteRequest || renamingFolder || moveFileModal
+    );
+    document.body.style.overflow = isOverlayOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileMenuOpen, lightboxFile, showProfile, confirmModal, showDeleteRequest, renamingFolder, moveFileModal]);
 
+  // Escape pre lightbox
+  useEffect(() => {
+    if (!lightboxFile) return;
+    function onKey(e) { if (e.key === 'Escape') setLightboxFile(null); }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [lightboxFile]);
+
+  // ══════════════════════════════════════════════════════════
+  // NAČÍTANIE DÁT
+  // ══════════════════════════════════════════════════════════
   async function loadUser() {
     try {
       const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
@@ -207,6 +462,9 @@ export default function Dashboard() {
     }
   }
 
+  // ══════════════════════════════════════════════════════════
+  // PRIEČINKY
+  // ══════════════════════════════════════════════════════════
   function navigateToFolder(folder) {
     if (!folder) { setCurrentFolder(null); setFolderPath([]); return; }
     const path = [];
@@ -251,14 +509,14 @@ export default function Dashboard() {
       onConfirm: async () => {
         setLoading(true);
         try {
-          const { data: allFolders, error: foldersErr } = await supabase.from('folders').select('id, parent_id').eq('class', profile.class);
+          const { data: allFoldersData, error: foldersErr } = await supabase.from('folders').select('id, parent_id').eq('class', profile.class);
           if (foldersErr) throw foldersErr;
           const getDescendantIds = (folderId, list) => {
             let ids = [folderId];
             for (const f of list.filter(f => f.parent_id === folderId)) ids = [...ids, ...getDescendantIds(f.id, list)];
             return ids;
           };
-          const folderIdsToDelete = getDescendantIds(folder.id, allFolders || []);
+          const folderIdsToDelete = getDescendantIds(folder.id, allFoldersData || []);
           const { data: filesToDelete, error: filesErr } = await supabase.from('files').select('file_name').in('folder_id', folderIdsToDelete);
           if (filesErr) throw filesErr;
           if (filesToDelete?.length > 0) {
@@ -273,8 +531,6 @@ export default function Dashboard() {
           const { error: dbErr } = await supabase.from('folders').delete().in('id', folderIdsToDelete);
           if (dbErr) throw dbErr;
           if (currentFolder && folderIdsToDelete.includes(currentFolder.id)) {
-            // Use full folder objects from `folders` state (has name, etc.)
-            // allFolders only has {id, parent_id} which would give undefined breadcrumb names
             const parentFolder = folder.parent_id ? folders.find(f => f.id === folder.parent_id) : null;
             navigateToFolder(parentFolder || null);
           }
@@ -286,6 +542,9 @@ export default function Dashboard() {
     });
   }
 
+  // ══════════════════════════════════════════════════════════
+  // PROFIL / HESLO
+  // ══════════════════════════════════════════════════════════
   async function saveProfile(e) {
     e.preventDefault();
     setProfileError(''); setProfileSuccess('');
@@ -301,15 +560,13 @@ export default function Dashboard() {
       const { error: signInErr } = await supabase.auth.signInWithPassword({ email: session.user.email, password: currentPw });
       if (signInErr) { setProfileError('Aktuálne heslo je nesprávne.'); setProfileSaving(false); return; }
       const { error: pwErr } = await supabase.auth.updateUser({ password: editPw });
-      if (pwErr) { setProfileError('Heslo sa nepodarilo zmenit: ' + pwErr.message); setProfileSaving(false); return; }
+      if (pwErr) { setProfileError('Heslo sa nepodarilo zmeniť: ' + pwErr.message); setProfileSaving(false); return; }
       setCurrentPw(''); setEditPw(''); setEditPwConfirm('');
       setProfileSuccess('Heslo bolo úspešne zmenené!');
     } catch (err) {
       console.error(err);
       setProfileError('Nastala neočakávaná chyba.');
-    } finally {
-      setProfileSaving(false);
-    }
+    } finally { setProfileSaving(false); }
   }
 
   async function requestDeletion() {
@@ -318,7 +575,6 @@ export default function Dashboard() {
       if (error) throw error;
       setDeleteRequestSent(true);
     } catch (err) {
-      console.error(err);
       askConfirm({ title: 'Chyba', message: 'Nepodarilo sa odoslať žiadosť: ' + err.message, danger: false, onConfirm: () => {} });
     }
   }
@@ -330,7 +586,9 @@ export default function Dashboard() {
     setShowProfile(true);
   }
 
-
+  // ══════════════════════════════════════════════════════════
+  // UPLOAD
+  // ══════════════════════════════════════════════════════════
   const onDrop = useCallback((accepted, rejected) => {
     setUploadError(''); setUploadSuccess('');
     if (rejected.length > 0) {
@@ -344,8 +602,7 @@ export default function Dashboard() {
     if (accepted.length === 0) return;
     setSelectedFiles(prev => {
       const existingNames = prev.map(f => f.name);
-      const newFiles = accepted.filter(f => !existingNames.includes(f.name));
-      return [...prev, ...newFiles];
+      return [...prev, ...accepted.filter(f => !existingNames.includes(f.name))];
     });
   }, []);
 
@@ -354,23 +611,14 @@ export default function Dashboard() {
     setUploadError(''); setUploadSuccess('');
     setUploading(true);
 
-    // Klientská kontrola denného limitu
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
+    const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
     const { count: todayCount, error: countErr } = await supabase
-      .from('files')
-      .select('id', { count: 'exact', head: true })
-      .eq('uploaded_by', profile.id)
-      .gte('created_at', startOfDay.toISOString());
-    if (countErr) {
-      setUploadError('Chyba pri kontrole denného limitu. Skús neskôr.');
-      setUploading(false);
-      return;
-    }
+      .from('files').select('id', { count: 'exact', head: true })
+      .eq('uploaded_by', profile.id).gte('created_at', startOfDay.toISOString());
+    if (countErr) { setUploadError('Chyba pri kontrole denného limitu.'); setUploading(false); return; }
     if (todayCount + selectedFiles.length > 20) {
       setUploadError(`Denný limit 20 súborov by bol prekročený. Môžeš nahrať ešte ${Math.max(0, 20 - todayCount)} súborov.`);
-      setUploading(false);
-      return;
+      setUploading(false); return;
     }
 
     let successCount = 0;
@@ -379,45 +627,21 @@ export default function Dashboard() {
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
       setUploadProgress({ current: i + 1, total: selectedFiles.length });
-
-      // Server-side validácia typu súboru
-      if (!ALLOWED_TYPES.includes(file.type)) {
-        errors.push(`${file.name}: Nepovolený typ súboru.`);
-        continue;
-      }
-
+      if (!ALLOWED_TYPES.includes(file.type)) { errors.push(`${file.name}: Nepovolený typ.`); continue; }
       const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
       const path = `${profile.class}/${safeName}`;
-
-      const { error: uploadErr } = await supabase.storage
-        .from('class-files')
-        .upload(path, file, { cacheControl: '3600', upsert: false });
+      const { error: uploadErr } = await supabase.storage.from('class-files').upload(path, file, { cacheControl: '3600', upsert: false });
       if (uploadErr) { errors.push(`${file.name}: ${uploadErr.message}`); continue; }
-
       const { data: inserted, error: dbErr } = await supabase.from('files').insert({
-        uploaded_by: profile.id,
-        class: profile.class,
-        file_name: path,
-        original_name: file.name,
-        file_url: path,
-        file_type: file.type,
-        file_size: file.size,
-        description: null,
-        folder_id: currentFolder ? currentFolder.id : null,
+        uploaded_by: profile.id, class: profile.class, file_name: path,
+        original_name: file.name, file_url: path, file_type: file.type, file_size: file.size,
+        description: null, folder_id: currentFolder ? currentFolder.id : null,
       }).select(`*, profiles(first_name, last_name)`).single();
-
-      if (dbErr) {
-        await supabase.storage.from('class-files').remove([path]);
-        errors.push(`${file.name}: ${dbErr.message}`);
-        continue;
-      }
-
+      if (dbErr) { await supabase.storage.from('class-files').remove([path]); errors.push(`${file.name}: ${dbErr.message}`); continue; }
       successCount++;
     }
 
-    setSelectedFiles([]);
-    setUploading(false);
-    setUploadProgress({ current: 0, total: 0 });
+    setSelectedFiles([]); setUploading(false); setUploadProgress({ current: 0, total: 0 });
 
     if (errors.length > 0) {
       setUploadError('Chyba: ' + errors.join(' | '));
@@ -425,8 +649,7 @@ export default function Dashboard() {
       messageTimeoutsRef.current.error = setTimeout(() => setUploadError(''), 5000);
     }
     if (successCount > 0) {
-      const msg = successCount === 1 ? 'Súbor bol úspešne nahraný!' : `${successCount} súborov bolo úspešne nahraných!`;
-      setUploadSuccess(msg);
+      setUploadSuccess(successCount === 1 ? 'Súbor bol úspešne nahraný!' : `${successCount} súborov bolo nahraných!`);
       if (messageTimeoutsRef.current.success) clearTimeout(messageTimeoutsRef.current.success);
       messageTimeoutsRef.current.success = setTimeout(() => setUploadSuccess(''), 4000);
       await loadFiles(profile.class);
@@ -447,6 +670,9 @@ export default function Dashboard() {
     maxSize: MAX_FILE_SIZE, multiple: true, disabled: uploading,
   });
 
+  // ══════════════════════════════════════════════════════════
+  // VYMAZANIE SÚBORU
+  // ══════════════════════════════════════════════════════════
   function deleteFile(file) {
     if (file.uploaded_by !== profile.id) {
       askConfirm({ title: 'Chyba', message: 'Môžeš vymazať iba vlastné súbory.', danger: false, onConfirm: () => {} });
@@ -464,16 +690,69 @@ export default function Dashboard() {
           setFiles(prev => prev.filter(f => f.id !== file.id));
           setAllFiles(prev => prev.filter(f => f.id !== file.id));
         } catch (err) {
-          console.error('deleteFile error:', err);
           askConfirm({ title: 'Chyba', message: 'Súbor sa nepodarilo vymazať: ' + err.message, danger: false, onConfirm: () => {} });
         }
       },
     });
   }
 
-  const currentFolderId = currentFolder ? currentFolder.id : null;
-  const visibleFolders = globalSearch ? [] : folders.filter(f => (f.parent_id || null) === currentFolderId);
+  // ══════════════════════════════════════════════════════════
+  // DOWNLOAD
+  // ══════════════════════════════════════════════════════════
+  async function downloadFile(file) {
+    try {
+      const url = await getSignedUrl(file.file_name, 120);
+      if (!url) return;
+      const a = document.createElement('a');
+      a.href = url; a.download = file.original_name; a.target = '_blank';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    } catch (err) { console.error('Error downloading file:', err); }
+  }
 
+  async function openLightbox(file) {
+    try {
+      const signedUrl = await getSignedUrl(file.file_name, 600);
+      if (!signedUrl) { askConfirm({ title: 'Chyba', message: 'URL sa nepodarilo vygenerovať.', danger: false, onConfirm: () => {} }); return; }
+      setLightboxFile({ ...file, signedUrl });
+    } catch (err) {
+      askConfirm({ title: 'Chyba', message: 'Náhľad sa nepodarilo načítať: ' + err.message, danger: false, onConfirm: () => {} });
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // ŠTATISTIKY – upload chart za 30 dní
+  // ══════════════════════════════════════════════════════════
+  const statsData = useMemo(() => {
+    if (!allFiles.length) return { days: [], topUploaders: [] };
+    const now = new Date();
+    const days = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const count = allFiles.filter(f => f.created_at.slice(0, 10) === key).length;
+      days.push({ key, label: `${d.getDate()}.${d.getMonth() + 1}.`, count });
+    }
+    const uploaderMap = {};
+    for (const f of allFiles) {
+      const name = `${f.profiles?.first_name || ''} ${f.profiles?.last_name || ''}`.trim() || 'Neznámy';
+      uploaderMap[name] = (uploaderMap[name] || 0) + 1;
+    }
+    const topUploaders = Object.entries(uploaderMap)
+      .sort((a, b) => b[1] - a[1]).slice(0, 5)
+      .map(([name, count]) => ({ name, count }));
+    return { days, topUploaders };
+  }, [allFiles]);
+
+  // ══════════════════════════════════════════════════════════
+  // COMPUTED
+  // ══════════════════════════════════════════════════════════
+  const currentFolderId = currentFolder ? currentFolder.id : null;
+  const visibleFolders = (globalSearch || showFavorites) ? [] : folders.filter(f => (f.parent_id || null) === currentFolderId);
+
+  // ══════════════════════════════════════════════════════════
+  // LOADING
+  // ══════════════════════════════════════════════════════════
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
       <div className="text-center">
@@ -484,10 +763,13 @@ export default function Dashboard() {
     </div>
   );
 
+  // ══════════════════════════════════════════════════════════
+  // RENDER
+  // ══════════════════════════════════════════════════════════
   return (
     <div style={{ background: 'var(--bg)' }}>
 
-      {/* Fix 11 - Lightbox */}
+      {/* ── LIGHTBOX ──────────────────────────────────────── */}
       {lightboxFile && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center animate-fade-in"
           style={{ background: 'rgba(0,0,0,0.92)', cursor: 'pointer' }}
@@ -509,12 +791,13 @@ export default function Dashboard() {
             onClick={e => e.stopPropagation()}
             className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold text-white"
             style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}>
-            <Download size={15} /> Stiahnut
+            <Download size={15} /> Stiahnuť
           </a>
+          <p className="absolute bottom-5 right-5 text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Klikni mimo pre zatvorenie</p>
         </div>
       )}
 
-      {/* Fix 10 - Mobile menu */}
+      {/* ── MOBILE MENU ───────────────────────────────────── */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-[55] flex flex-col sm:hidden animate-fade-in"
           style={{ background: 'rgba(7,17,31,0.97)' }}>
@@ -533,6 +816,11 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="flex flex-col gap-2 px-5 pt-4">
+            <button onClick={() => { setMobileMenuOpen(false); setShowStats(true); }}
+              className="flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left font-semibold text-white"
+              style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <BarChart2 size={18} style={{ color: '#a855f7' }} /> Štatistiky triedy
+            </button>
             <button onClick={() => { setMobileMenuOpen(false); openProfile(); }}
               className="flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left font-semibold text-white"
               style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -556,7 +844,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Confirm modal */}
+      {/* ── CONFIRM MODAL ─────────────────────────────────── */}
       {confirmModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in"
           style={{ background: 'var(--overlay)' }}>
@@ -579,8 +867,7 @@ export default function Dashboard() {
                   </button>
                 </>
               ) : (
-                <button onClick={() => setConfirmModal(null)}
-                  className="w-full py-2.5 rounded-xl font-semibold text-sm"
+                <button onClick={() => setConfirmModal(null)} className="w-full py-2.5 rounded-xl font-semibold text-sm"
                   style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
                   Zatvoriť
                 </button>
@@ -590,7 +877,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Modal Zrusenie uctu */}
+      {/* ── ZRUŠENIE ÚČTU MODAL ───────────────────────────── */}
       {showDeleteRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" style={{ background: 'var(--overlay)' }}>
           <div className="rounded-3xl shadow-2xl w-full max-w-sm p-6 relative animate-slide-up" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
@@ -604,7 +891,7 @@ export default function Dashboard() {
                   <CheckCircle size={28} style={{ color: '#10b981' }} />
                 </div>
                 <h2 className="text-lg font-bold mb-2" style={{ color: 'var(--text)' }}>Žiadosť odoslaná</h2>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Správca školy dostane tvoju žiadosť o zrušenie účtu a rozhodne o nej čo najskôr.</p>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Správca školy dostane tvoju žiadosť a rozhodne o nej čo najskôr.</p>
                 <button onClick={() => { setShowDeleteRequest(false); setDeleteRequestSent(false); }} className="btn-primary w-full mt-5">Zatvoriť</button>
               </div>
             ) : (
@@ -637,7 +924,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Profil Modal */}
+      {/* ── PROFIL MODAL ──────────────────────────────────── */}
       {showProfile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" style={{ background: 'var(--overlay)' }}>
           <div className="rounded-3xl shadow-2xl w-full max-w-md p-6 relative animate-slide-up overflow-y-auto" style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '90vh' }}>
@@ -666,57 +953,27 @@ export default function Dashboard() {
                 </div>
               </div>
               <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Meno môže zmeniť iba správca školy.</p>
-              <div className="border-t" style={{ borderColor: 'var(--border)' }}>
-                <div className="pt-3 space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Zmena hesla</p>
-                  <div>
-                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Aktuálne heslo</label>
+              <div className="border-t pt-3 space-y-3" style={{ borderColor: 'var(--border)' }}>
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Zmena hesla</p>
+                {[
+                  { label: 'Aktuálne heslo', val: currentPw, set: setCurrentPw, show: showCurrentPw, toggle: () => setShowCurrentPw(v => !v), ac: 'current-password', ph: 'vaše aktuálne heslo' },
+                  { label: 'Nové heslo', val: editPw, set: setEditPw, show: showNewPw, toggle: () => setShowNewPw(v => !v), ac: 'new-password', ph: 'min. 6 znakov' },
+                  { label: 'Zopakujte nové heslo', val: editPwConfirm, set: setEditPwConfirm, show: showConfirmPw, toggle: () => setShowConfirmPw(v => !v), ac: 'new-password', ph: 'zopakujte heslo' },
+                ].map(({ label, val, set, show, toggle, ac, ph }) => (
+                  <div key={label}>
+                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>{label}</label>
                     <div className="relative">
-                    <input type={showCurrentPw ? 'text' : 'password'} className="input-field pr-10"
-                        autoComplete="current-password"
-                        placeholder="vaše aktuálne heslo" value={currentPw} onChange={e => setCurrentPw(e.target.value)} required />
-                      <button type="button" onClick={() => setShowCurrentPw(v => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
-                        {showCurrentPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                      <input type={show ? 'text' : 'password'} className="input-field pr-10"
+                        autoComplete={ac} placeholder={ph} value={val} onChange={e => set(e.target.value)} required />
+                      <button type="button" onClick={toggle} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
+                        {show ? <EyeOff size={15} /> : <Eye size={15} />}
                       </button>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Nové heslo</label>
-                    <div className="relative">
-                      <input type={showNewPw ? 'text' : 'password'} className="input-field pr-10"
-                        autoComplete="new-password"
-                        placeholder="min. 6 znakov" value={editPw} onChange={e => setEditPw(e.target.value)} required />
-                      <button type="button" onClick={() => setShowNewPw(v => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
-                        {showNewPw ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Zopakujte nové heslo</label>
-                    <div className="relative">
-                      <input type={showConfirmPw ? 'text' : 'password'} className="input-field pr-10"
-                        autoComplete="new-password"
-                        placeholder="zopakujte heslo" value={editPwConfirm} onChange={e => setEditPwConfirm(e.target.value)} required />
-                      <button type="button" onClick={() => setShowConfirmPw(v => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
-                        {showConfirmPw ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
-              {profileError && (
-                <div className="px-3 py-2.5 rounded-xl text-sm flex items-center gap-2" style={{ background: 'rgba(200,32,10,0.1)', color: '#ef4444', border: '1px solid rgba(200,32,10,0.25)' }}>
-                  <AlertCircle size={14} /> {profileError}
-                </div>
-              )}
-              {profileSuccess && (
-                <div className="px-3 py-2.5 rounded-xl text-sm flex items-center gap-2" style={{ background: 'rgba(5,150,105,0.1)', color: '#10b981', border: '1px solid rgba(5,150,105,0.25)' }}>
-                  <CheckCircle size={14} /> {profileSuccess}
-                </div>
-              )}
+              {profileError && <div className="px-3 py-2.5 rounded-xl text-sm flex items-center gap-2" style={{ background: 'rgba(200,32,10,0.1)', color: '#ef4444', border: '1px solid rgba(200,32,10,0.25)' }}><AlertCircle size={14} /> {profileError}</div>}
+              {profileSuccess && <div className="px-3 py-2.5 rounded-xl text-sm flex items-center gap-2" style={{ background: 'rgba(5,150,105,0.1)', color: '#10b981', border: '1px solid rgba(5,150,105,0.25)' }}><CheckCircle size={14} /> {profileSuccess}</div>}
               <button type="submit" disabled={profileSaving} className="btn-primary w-full flex items-center justify-center gap-2">
                 {profileSaving ? 'Ukladám...' : 'Zmeniť heslo'}
               </button>
@@ -725,7 +982,156 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Header */}
+      {/* ── ŠTATISTIKY MODAL ──────────────────────────────── */}
+      {showStats && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" style={{ background: 'var(--overlay)' }}>
+          <div className="rounded-3xl shadow-2xl w-full max-w-2xl p-6 relative animate-slide-up overflow-y-auto" style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '90vh' }}>
+            <button onClick={() => setShowStats(false)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
+              <X size={16} style={{ color: 'var(--text-muted)' }} />
+            </button>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(168,85,247,0.12)' }}>
+                <BarChart2 size={18} style={{ color: '#a855f7' }} />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>Štatistiky triedy {profile?.class}</h2>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Uploady za posledných 30 dní</p>
+              </div>
+            </div>
+
+            {/* Bar chart – uploady za 30 dní */}
+            <div className="mb-6">
+              <UploadChart days={statsData.days} />
+            </div>
+
+            {/* Top uploaders */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Top nahrávači</p>
+              {statsData.topUploaders.length === 0 ? (
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Zatiaľ žiadne dáta.</p>
+              ) : (
+                <div className="space-y-2">
+                  {statsData.topUploaders.map(({ name, count }, i) => {
+                    const max = statsData.topUploaders[0].count;
+                    const pct = Math.round((count / max) * 100);
+                    const medals = ['🥇', '🥈', '🥉', '4.', '5.'];
+                    return (
+                      <div key={name} className="flex items-center gap-3">
+                        <span className="text-sm w-6 text-center">{medals[i]}</span>
+                        <span className="text-sm font-medium flex-1 truncate" style={{ color: 'var(--text)' }}>{name}</span>
+                        <div className="flex items-center gap-2 w-36">
+                          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'var(--surface-2)' }}>
+                            <div className="h-full rounded-full transition-all duration-500"
+                              style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #1A3A6B, #a855f7)' }} />
+                          </div>
+                          <span className="text-xs font-semibold w-8 text-right" style={{ color: 'var(--text-muted)' }}>{count}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PREMENOVANIE PRIEČINKA MODAL ──────────────────── */}
+      {renamingFolder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" style={{ background: 'var(--overlay)' }}>
+          <div className="rounded-3xl shadow-2xl w-full max-w-sm p-6 relative animate-slide-up" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <button onClick={() => setRenamingFolder(null)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
+              <X size={16} style={{ color: 'var(--text-muted)' }} />
+            </button>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(245,158,11,0.12)' }}>
+                <Pencil size={16} style={{ color: '#f59e0b' }} />
+              </div>
+              <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Premenovať priečinok</h2>
+            </div>
+            <form onSubmit={saveRenameFolder} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text)' }}>Nový názov</label>
+                <input type="text" className="input-field" placeholder="Názov priečinka..."
+                  value={renameFolderName} onChange={e => setRenameFolderName(e.target.value)}
+                  autoFocus maxLength={60} required />
+              </div>
+              {renameFolderError && <div className="px-3 py-2 rounded-xl text-sm flex items-center gap-2" style={{ background: 'rgba(200,32,10,0.1)', color: '#ef4444', border: '1px solid rgba(200,32,10,0.25)' }}><AlertCircle size={13} /> {renameFolderError}</div>}
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setRenamingFolder(null)}
+                  className="flex-1 py-2.5 rounded-xl font-semibold text-sm"
+                  style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                  Zrušiť
+                </button>
+                <button type="submit" disabled={renameFolderSaving} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                  {renameFolderSaving ? 'Ukladám...' : 'Premenovať'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── PRESUN SÚBORU MODAL ───────────────────────────── */}
+      {moveFileModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" style={{ background: 'var(--overlay)' }}>
+          <div className="rounded-3xl shadow-2xl w-full max-w-sm p-6 relative animate-slide-up" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <button onClick={() => setMoveFileModal(null)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
+              <X size={16} style={{ color: 'var(--text-muted)' }} />
+            </button>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(26,58,107,0.1)' }}>
+                <MoveRight size={16} style={{ color: 'var(--accent-link)' }} />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Presunúť súbor</h2>
+                <p className="text-xs truncate max-w-[200px]" style={{ color: 'var(--text-muted)' }}>{moveFileModal.original_name}</p>
+              </div>
+            </div>
+            <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
+              <button onClick={() => setMoveTargetFolderId('__root__')}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm font-medium transition-all"
+                style={{
+                  background: moveTargetFolderId === '__root__' ? 'rgba(26,58,107,0.15)' : 'var(--surface-2)',
+                  border: moveTargetFolderId === '__root__' ? '1.5px solid var(--accent-link)' : '1px solid var(--border)',
+                  color: 'var(--text)'
+                }}>
+                <FolderOpen size={15} style={{ color: 'var(--accent-link)', flexShrink: 0 }} />
+                Koreň triedy (bez priečinka)
+              </button>
+              {folders.map(folder => (
+                <button key={folder.id} onClick={() => setMoveTargetFolderId(folder.id)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm font-medium transition-all"
+                  style={{
+                    background: moveTargetFolderId === folder.id ? 'rgba(245,158,11,0.12)' : 'var(--surface-2)',
+                    border: moveTargetFolderId === folder.id ? '1.5px solid #f59e0b' : '1px solid var(--border)',
+                    color: 'var(--text)'
+                  }}>
+                  <Folder size={15} style={{ color: '#f59e0b', flexShrink: 0 }} />
+                  <span className="truncate">{folder.parent_id ? `  └ ${folder.name}` : folder.name}</span>
+                </button>
+              ))}
+            </div>
+            {moveError && <div className="mb-3 px-3 py-2 rounded-xl text-sm flex items-center gap-2" style={{ background: 'rgba(200,32,10,0.1)', color: '#ef4444', border: '1px solid rgba(200,32,10,0.25)' }}><AlertCircle size={13} /> {moveError}</div>}
+            <div className="flex gap-2">
+              <button onClick={() => setMoveFileModal(null)}
+                className="flex-1 py-2.5 rounded-xl font-semibold text-sm"
+                style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                Zrušiť
+              </button>
+              <button onClick={moveFile} disabled={moveSaving || !moveTargetFolderId}
+                className="btn-primary flex-1 flex items-center justify-center gap-2">
+                {moveSaving ? 'Presúvam...' : 'Presunúť'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── HEADER ────────────────────────────────────────── */}
       <header className="school-header">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between relative z-10">
           <div className="flex items-center gap-3">
@@ -737,9 +1143,7 @@ export default function Dashboard() {
               <p className="text-white font-bold text-sm hidden sm:block" style={{ fontFamily: 'Sora, sans-serif' }}>
                 Spojená škola Kollárova 17, Sečovce
               </p>
-              <p className="text-white font-bold text-sm sm:hidden" style={{ fontFamily: 'Sora, sans-serif' }}>
-                SS Sečovce
-              </p>
+              <p className="text-white font-bold text-sm sm:hidden" style={{ fontFamily: 'Sora, sans-serif' }}>SS Sečovce</p>
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
                 <p className="text-blue-200 text-xs">Trieda {profile?.class}</p>
@@ -747,6 +1151,20 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {/* Notifikácia bell */}
+            <button onClick={markNotifSeen}
+              className="relative w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+              style={{ background: 'rgba(255,255,255,0.1)', color: 'white' }}
+              title="Nové súbory od spolužiakov">
+              <Bell size={16} />
+              {notifCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
+                  style={{ background: '#ef4444' }}>
+                  {notifCount > 9 ? '9+' : notifCount}
+                </span>
+              )}
+            </button>
+
             <div className="relative hidden sm:block">
               <button ref={userMenuBtnRef} onClick={() => setShowUserMenu(v => !v)}
                 className="flex items-center gap-2 rounded-xl px-3 py-1.5 transition-colors"
@@ -758,6 +1176,13 @@ export default function Dashboard() {
               {showUserMenu && (
                 <div ref={userMenuRef} className="absolute right-0 top-full mt-2 z-50 rounded-2xl shadow-2xl py-1.5 min-w-[200px] animate-fade-in"
                   style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                  <button onClick={() => { setShowUserMenu(false); setShowStats(true); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left"
+                    style={{ color: 'var(--text)' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <BarChart2 size={15} style={{ color: '#a855f7' }} /> Štatistiky triedy
+                  </button>
                   <button onClick={() => { setShowUserMenu(false); openProfile(); }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-left"
                     style={{ color: 'var(--text)' }}
@@ -792,14 +1217,18 @@ export default function Dashboard() {
         </div>
       </header>
 
+      {/* ── MAIN ──────────────────────────────────────────── */}
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
         <div className="animate-slide-up">
           <h2 className="text-2xl sm:text-3xl font-bold" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>
             Trieda {profile?.class}
           </h2>
-          <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>{globalSearch ? `${filteredFiles.length} výsledkov hľadania` : `${filteredFiles.length} materiálov v tomto priečinku`}</p>
+          <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
+            {showFavorites ? `${filteredFiles.length} obľúbených súborov` : globalSearch ? `${filteredFiles.length} výsledkov hľadania` : `${filteredFiles.length} materiálov v tomto priečinku`}
+          </p>
         </div>
 
+        {/* Stat cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up">
           <StatCard icon={<BookOpen size={20} style={{ color: '#3b82f6' }} />} title="Súbory" value={allFiles.length} subtitle="celkom nahraných" color="blue" />
           <StatCard icon={<Folder size={20} style={{ color: '#f59e0b' }} />} title="Priečinky" value={folders.filter(f => !f.parent_id).length} subtitle="hlavných priečinkov" color="amber" />
@@ -807,6 +1236,7 @@ export default function Dashboard() {
           <StatCard icon={<Clock size={20} style={{ color: '#a855f7' }} />} title="Veľkosť" value={allFiles.length > 0 ? formatFileSize(allFiles.reduce((sum, f) => sum + (f.file_size || 0), 0)) : '0 B'} subtitle="všetky súbory spolu" color="purple" />
         </div>
 
+        {/* Upload karta */}
         <div className="card shadow-card animate-slide-up">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
@@ -839,17 +1269,14 @@ export default function Dashboard() {
                         <p className="font-medium text-xs truncate" style={{ color: 'var(--text)' }}>{f.name}</p>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatFileSize(f.size)}</p>
                       </div>
-                      <button onClick={e => { e.stopPropagation(); setSelectedFiles(prev => prev.filter((_, idx) => idx !== i)); setUploadError(''); }}
-                        className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-colors"
-                        style={{ color: 'var(--text-muted)' }}>
+                      <button onClick={e => { e.stopPropagation(); setSelectedFiles(prev => prev.filter((_, idx) => idx !== i)); }}
+                        className="w-5 h-5 rounded flex items-center justify-center" style={{ color: 'var(--text-muted)' }}>
                         <X size={12} />
                       </button>
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-center mt-3" style={{ color: 'var(--text-dim)' }}>
-                  Klikni alebo pretiahni ďalšie súbory
-                </p>
+                <p className="text-xs text-center mt-3" style={{ color: 'var(--text-dim)' }}>Klikni alebo pretiahni ďalšie súbory</p>
               </div>
             ) : isDragActive ? (
               <div className="flex flex-col items-center">
@@ -885,47 +1312,146 @@ export default function Dashboard() {
           {uploadSuccess && <div className="mt-3 px-4 py-2.5 rounded-xl text-sm" style={{ background: 'rgba(5,150,105,0.1)', color: '#10b981', border: '1px solid rgba(5,150,105,0.25)' }}>{uploadSuccess}</div>}
         </div>
 
+        {/* Súbory karta */}
         <div className="card shadow-card animate-slide-up">
+
+          {/* Header riadok */}
           <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--surface-2)' }}>
                 <FolderOpen size={16} style={{ color: 'var(--accent-link)' }} />
               </div>
               <h3 className="font-bold" style={{ color: 'var(--text)' }}>
-                {globalSearch ? `Výsledky hľadania "${search}"` : 'Priečinky a súbory triedy'}
+                {showFavorites ? '⭐ Obľúbené' : globalSearch ? `Výsledky hľadania "${search}"` : 'Priečinky a súbory triedy'}
               </h3>
+              {/* Obľúbené toggle */}
+              <button onClick={() => { setShowFavorites(v => !v); setSearch(''); setBulkSelected(new Set()); }}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold transition-all"
+                style={showFavorites
+                  ? { background: 'rgba(245,158,11,0.2)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.4)' }
+                  : { background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                <Star size={11} fill={showFavorites ? '#f59e0b' : 'none'} /> Obľúbené
+                {favorites.length > 0 && <span className="ml-0.5">({favorites.length})</span>}
+              </button>
+              {/* Bulk mode toggle */}
+              <button onClick={() => { setBulkMode(v => !v); setBulkSelected(new Set()); }}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold transition-all"
+                style={bulkMode
+                  ? { background: 'rgba(26,58,107,0.2)', color: 'var(--accent-link)', border: '1px solid rgba(26,58,107,0.3)' }
+                  : { background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                <CheckSquare size={11} /> Vybrať viac
+              </button>
             </div>
-            <div className="flex items-center gap-2">
-              {!globalSearch && folderPath.length < 3 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Nový priečinok */}
+              {!globalSearch && !showFavorites && folderPath.length < 3 && (
                 <button onClick={() => { setShowCreateFolder(true); setFolderError(''); setNewFolderName(''); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold flex-shrink-0"
                   style={{ background: 'var(--surface-2)', color: 'var(--accent-link)' }}>
                   <FolderPlus size={13} /> Nový priečinok
                 </button>
               )}
-              <div className="input-with-icon flex-1" style={{ minWidth: 0 }}>
+              {/* Sort dropdown */}
+              <div className="relative" ref={sortMenuRef}>
+                <button onClick={() => setShowSortMenu(v => !v)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold"
+                  style={{ background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                  <ArrowUpDown size={12} />
+                  {SORT_OPTIONS.find(o => o.value === sortKey)?.label}
+                </button>
+                {showSortMenu && (
+                  <div className="absolute right-0 top-full mt-1 z-30 rounded-2xl shadow-2xl py-1 min-w-[150px] animate-fade-in"
+                    style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                    {SORT_OPTIONS.map(opt => (
+                      <button key={opt.value} onClick={() => { setSortKey(opt.value); setShowSortMenu(false); }}
+                        className="w-full text-left px-4 py-2 text-xs font-medium transition-colors"
+                        style={{ color: sortKey === opt.value ? 'var(--accent-link)' : 'var(--text)', fontWeight: sortKey === opt.value ? '700' : '500' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Typ filter dropdown */}
+              <div className="relative" ref={typeMenuRef}>
+                <button onClick={() => setShowTypeMenu(v => !v)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold"
+                  style={typeFilter
+                    ? { background: 'rgba(26,58,107,0.15)', color: 'var(--accent-link)', border: '1px solid rgba(26,58,107,0.3)' }
+                    : { background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                  <Filter size={12} />
+                  {TYPE_FILTERS.find(o => o.value === typeFilter)?.label}
+                </button>
+                {showTypeMenu && (
+                  <div className="absolute right-0 top-full mt-1 z-30 rounded-2xl shadow-2xl py-1 min-w-[150px] animate-fade-in"
+                    style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                    {TYPE_FILTERS.map(opt => (
+                      <button key={opt.value} onClick={() => { setTypeFilter(opt.value); setShowTypeMenu(false); }}
+                        className="w-full text-left px-4 py-2 text-xs font-medium transition-colors"
+                        style={{ color: typeFilter === opt.value ? 'var(--accent-link)' : 'var(--text)', fontWeight: typeFilter === opt.value ? '700' : '500' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Hľadaj */}
+              <div className="input-with-icon" style={{ minWidth: 0 }}>
                 <Search size={15} className="input-icon" />
-                <input className="input-inner text-sm" style={{ width: '100%' }}
-                  placeholder="Hľadaj..."
-                  value={search} onChange={e => setSearch(e.target.value)} />
+                <input className="input-inner text-sm" style={{ width: '140px' }}
+                  placeholder="Hľadaj..." value={search} onChange={e => { setSearch(e.target.value); if (e.target.value) setShowFavorites(false); }} />
                 {globalSearch && (
-                  <button onClick={() => setSearch('')} className="flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
-                    <X size={13} />
-                  </button>
+                  <button onClick={() => setSearch('')} style={{ color: 'var(--text-muted)' }}><X size={13} /></button>
                 )}
               </div>
             </div>
           </div>
 
-          {globalSearch && (
-            <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium"
-              style={{ background: 'rgba(26,58,107,0.08)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-              <Search size={12} />
-              Hľadám vo všetkých priečinkoch triedy — {filteredFiles.length} výsledkov
+          {/* Bulk akcie bar */}
+          {bulkMode && (
+            <div className="flex items-center gap-2 flex-wrap mb-4 px-3 py-2.5 rounded-2xl"
+              style={{ background: 'rgba(26,58,107,0.08)', border: '1px solid rgba(26,58,107,0.15)' }}>
+              <button onClick={selectAllVisible} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl"
+                style={{ background: 'var(--surface)', color: 'var(--accent-link)', border: '1px solid var(--border)' }}>
+                <CheckSquare size={12} /> Vybrať všetky ({filteredFiles.length})
+              </button>
+              {bulkSelected.size > 0 && (
+                <>
+                  <span className="text-xs font-semibold px-2 py-1 rounded-lg" style={{ background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                    {bulkSelected.size} vybraných
+                  </span>
+                  <button onClick={bulkDownload} disabled={bulkDownloading}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl"
+                    style={{ background: 'rgba(26,58,107,0.15)', color: 'var(--accent-link)', border: '1px solid rgba(26,58,107,0.25)' }}>
+                    <Download size={12} /> {bulkDownloading ? 'Sťahujem...' : 'Stiahnuť vybrané'}
+                  </button>
+                  <button onClick={bulkDelete}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl"
+                    style={{ background: 'rgba(200,32,10,0.1)', color: '#ef4444', border: '1px solid rgba(200,32,10,0.25)' }}>
+                    <Trash2 size={12} /> Vymazať vybrané
+                  </button>
+                </>
+              )}
+              <button onClick={clearBulkSelection} className="ml-auto" style={{ color: 'var(--text-muted)' }}>
+                <X size={14} />
+              </button>
             </div>
           )}
 
-          {!globalSearch && (
+          {/* Info banner pri hľadaní */}
+          {globalSearch && (
+            <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium"
+              style={{ background: 'rgba(26,58,107,0.08)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+              <Search size={12} /> Hľadám vo všetkých priečinkoch — {filteredFiles.length} výsledkov
+            </div>
+          )}
+
+          {/* Breadcrumb */}
+          {!globalSearch && !showFavorites && (
             <div className="flex items-center gap-1 flex-wrap mb-4 text-sm">
               <button onClick={() => navigateToFolder(null)}
                 className="px-2 py-1 rounded-lg transition-colors font-medium"
@@ -945,7 +1471,8 @@ export default function Dashboard() {
             </div>
           )}
 
-          {!globalSearch && showCreateFolder && (
+          {/* Vytvoriť priečinok inline form */}
+          {!globalSearch && !showFavorites && showCreateFolder && (
             <form onSubmit={createFolder} className="flex items-center gap-2 mb-4 p-3 rounded-2xl border"
               style={{ background: 'rgba(180,120,0,0.08)', borderColor: 'rgba(180,120,0,0.2)' }}>
               <Folder size={16} style={{ color: '#f59e0b', flexShrink: 0 }} />
@@ -963,6 +1490,7 @@ export default function Dashboard() {
           )}
           {folderError && <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-xl text-sm" style={{ background: 'rgba(200,32,10,0.1)', color: '#ef4444', border: '1px solid rgba(200,32,10,0.25)' }}><AlertCircle size={13} /> {folderError}</div>}
 
+          {/* Priečinky grid */}
           {visibleFolders.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-5">
               {visibleFolders.map(folder => {
@@ -971,7 +1499,9 @@ export default function Dashboard() {
                 return (
                   <FolderCard key={folder.id} folder={folder} childCount={childCount} fileCount={fileCount}
                     isOwner={folder.created_by === profile?.id}
-                    onOpen={() => navigateToFolder(folder)} onDelete={() => deleteFolder(folder)} />
+                    onOpen={() => navigateToFolder(folder)}
+                    onDelete={() => deleteFolder(folder)}
+                    onRename={() => { setRenamingFolder(folder); setRenameFolderName(folder.name); setRenameFolderError(''); }} />
                 );
               })}
             </div>
@@ -979,32 +1509,42 @@ export default function Dashboard() {
 
           {visibleFolders.length > 0 && filteredFiles.length > 0 && <div style={{ borderTop: '1px solid var(--border)', marginBottom: '20px' }} />}
 
+          {/* Prázdny stav */}
           {filteredFiles.length === 0 && visibleFolders.length === 0 ? (
             <div className="text-center py-10">
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: 'var(--surface-2)' }}>
-                <BookOpen size={24} style={{ color: 'var(--text-dim)' }} />
+                {showFavorites ? <Star size={24} style={{ color: 'var(--text-dim)' }} /> : <BookOpen size={24} style={{ color: 'var(--text-dim)' }} />}
               </div>
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                {globalSearch ? 'Žiadne súbory nezodpovedajú hľadaniu.' : currentFolder ? 'Tento priečinok je prázdny.' : 'Trieda zatiaľ nemá žiadne materiály.'}
+                {showFavorites ? 'Zatiaľ žiadne obľúbené. Klikni na hviezdičku pri súbore.' : globalSearch ? 'Žiadne súbory nezodpovedajú hľadaniu.' : currentFolder ? 'Tento priečinok je prázdny.' : 'Trieda zatiaľ nemá žiadne materiály.'}
               </p>
             </div>
           ) : filteredFiles.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {filteredFiles.map(file => (
-                <FileCard key={file.id} file={file} isOwner={file.uploaded_by === profile?.id}
-                  onDelete={() => deleteFile(file)} showFolder={globalSearch}
+                <FileCard key={file.id} file={file}
+                  isOwner={file.uploaded_by === profile?.id}
+                  isFavorite={favorites.includes(file.id)}
+                  isSelected={bulkMode && bulkSelected.has(file.id)}
+                  bulkMode={bulkMode}
+                  onDelete={() => deleteFile(file)}
+                  showFolder={globalSearch || showFavorites}
                   onPreview={openLightbox}
                   onDownload={() => downloadFile(file)}
-                  folderName={globalSearch && file.folder_id ? folders.find(f => f.id === file.folder_id)?.name : null} />
+                  onToggleFavorite={() => toggleFavorite(file.id)}
+                  onMove={() => { setMoveFileModal(file); setMoveTargetFolderId(file.folder_id || ''); setMoveError(''); }}
+                  onToggleSelect={() => toggleBulkSelect(file.id)}
+                  folderName={(globalSearch || showFavorites) && file.folder_id ? folders.find(f => f.id === file.folder_id)?.name : null}
+                />
               ))}
             </div>
           ) : null}
 
-          {/* Nacitat viac */}
-          {!globalSearch && hasMoreFiles && (
-            <div className="text-center pt-2">
+          {/* Načítať viac */}
+          {!globalSearch && !showFavorites && hasMoreFiles && (
+            <div className="text-center pt-4">
               <button onClick={loadMoreFiles} disabled={loadingMore}
-                className="px-6 py-2.5 rounded-2xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2.5 rounded-2xl text-sm font-semibold transition-all disabled:opacity-50"
                 style={{ background: 'var(--surface-2)', color: 'var(--accent-link)', border: '1px solid var(--border)' }}>
                 {loadingMore ? 'Načítavam...' : 'Načítať viac súborov'}
               </button>
@@ -1020,6 +1560,46 @@ export default function Dashboard() {
   );
 }
 
+// ─── UPLOAD CHART KOMPONENT ───────────────────────────────────────────────────
+function UploadChart({ days }) {
+  const maxCount = Math.max(...days.map(d => d.count), 1);
+  const last7 = days.slice(-7);
+  // Zobrazíme len posledných 14 dní aby sa zmestilo
+  const visible = days.slice(-14);
+
+  return (
+    <div>
+      <div className="flex items-end gap-1 h-32">
+        {visible.map(d => {
+          const pct = (d.count / maxCount) * 100;
+          return (
+            <div key={d.key} className="flex-1 flex flex-col items-center gap-1 group" title={`${d.label} — ${d.count} uploadov`}>
+              <div className="w-full relative flex items-end" style={{ height: '96px' }}>
+                <div className="w-full rounded-t-lg transition-all duration-300"
+                  style={{
+                    height: `${Math.max(pct, d.count > 0 ? 8 : 2)}%`,
+                    background: d.count > 0 ? 'linear-gradient(180deg, #a855f7, #1A3A6B)' : 'var(--surface-3)',
+                    minHeight: '3px',
+                    opacity: d.count > 0 ? 1 : 0.4,
+                  }} />
+                {d.count > 0 && (
+                  <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ color: 'var(--text-muted)' }}>
+                    {d.count}
+                  </span>
+                )}
+              </div>
+              <span className="text-[9px] font-medium" style={{ color: 'var(--text-dim)', fontSize: '9px' }}>{d.label}</span>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-xs text-center mt-2" style={{ color: 'var(--text-dim)' }}>Posledných 14 dní — hover pre detaily</p>
+    </div>
+  );
+}
+
+// ─── STAT CARD ────────────────────────────────────────────────────────────────
 function StatCard({ icon, title, value, subtitle, color }) {
   const colorMap = { blue: 'rgba(26,58,107,0.15)', amber: 'rgba(180,100,0,0.12)', green: 'rgba(5,150,105,0.12)', purple: 'rgba(109,40,217,0.12)' };
   return (
@@ -1035,7 +1615,8 @@ function StatCard({ icon, title, value, subtitle, color }) {
   );
 }
 
-function FolderCard({ folder, childCount, fileCount, isOwner, onOpen, onDelete }) {
+// ─── FOLDER CARD ──────────────────────────────────────────────────────────────
+function FolderCard({ folder, childCount, fileCount, isOwner, onOpen, onDelete, onRename }) {
   return (
     <div className="group relative">
       <button onClick={onOpen} className="w-full text-left p-4 rounded-2xl border transition-all duration-200 hover:shadow-sm"
@@ -1045,16 +1626,23 @@ function FolderCard({ folder, childCount, fileCount, isOwner, onOpen, onDelete }
             <Folder size={20} style={{ color: '#f59e0b' }} />
           </div>
           {isOwner && (
-            <button type="button" onClick={e => { e.stopPropagation(); onDelete(); }}
-              className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 w-6 h-6 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all"
-              style={{ background: 'rgba(200,32,10,0.1)' }}>
-              <Trash2 size={12} />
-            </button>
+            <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all">
+              <button type="button" onClick={e => { e.stopPropagation(); onRename(); }}
+                className="w-6 h-6 rounded-lg flex items-center justify-center transition-all"
+                style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
+                <Pencil size={11} />
+              </button>
+              <button type="button" onClick={e => { e.stopPropagation(); onDelete(); }}
+                className="w-6 h-6 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all"
+                style={{ background: 'rgba(200,32,10,0.1)' }}>
+                <Trash2 size={11} />
+              </button>
+            </div>
           )}
         </div>
         <p className="font-semibold text-sm leading-tight line-clamp-2 mb-1" style={{ color: 'var(--text)' }}>{folder.name}</p>
         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-          {childCount > 0 && `${childCount} podpriec. `}{fileCount > 0 && `${fileCount} sub.`}
+          {childCount > 0 && `${childCount} podpriec. `}{fileCount > 0 && `${fileCount} súb.`}
           {childCount === 0 && fileCount === 0 && 'Prázdny'}
         </p>
       </button>
@@ -1062,20 +1650,52 @@ function FolderCard({ folder, childCount, fileCount, isOwner, onOpen, onDelete }
   );
 }
 
-function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview, onDownload }) {
+// ─── FILE CARD ────────────────────────────────────────────────────────────────
+function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview, onDownload, isFavorite, onToggleFavorite, onMove, isSelected, bulkMode, onToggleSelect }) {
   const date = new Date(file.created_at).toLocaleDateString('sk-SK', { day: '2-digit', month: 'short', year: 'numeric' });
   const isImage = file.file_type?.startsWith('image/');
+
   return (
-    <div className="file-card group">
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <span className="text-2xl">{getFileIcon(file.file_type)}</span>
-        {isOwner && (
-        <button onClick={onDelete} className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all"
-        style={{ background: 'rgba(200,32,10,0.1)' }}>
-        <Trash2 size={14} />
+    <div className="file-card group relative" style={isSelected ? { border: '2px solid var(--accent-link)', background: 'rgba(26,58,107,0.06)' } : {}}>
+      {/* Bulk checkbox */}
+      {bulkMode && (
+        <button onClick={onToggleSelect}
+          className="absolute top-3 left-3 z-10 w-5 h-5 rounded flex items-center justify-center transition-all"
+          style={{ background: isSelected ? 'var(--accent-link)' : 'var(--surface-2)', border: '1.5px solid var(--border)' }}>
+          {isSelected && <CheckCircle size={12} color="white" />}
         </button>
-        )}
+      )}
+
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <span className="text-2xl" style={{ marginLeft: bulkMode ? '24px' : '0' }}>{getFileIcon(file.file_type)}</span>
+        <div className="flex items-center gap-1">
+          {/* Hviezdička – obľúbené */}
+          <button onClick={onToggleFavorite}
+            className="w-6 h-6 rounded-lg flex items-center justify-center transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+            style={{ color: isFavorite ? '#f59e0b' : 'var(--text-dim)' }}
+            title={isFavorite ? 'Odstrániť z obľúbených' : 'Pridať do obľúbených'}>
+            <Star size={13} fill={isFavorite ? '#f59e0b' : 'none'} />
+          </button>
+          {/* Presun */}
+          {isOwner && (
+            <button onClick={onMove}
+              className="w-6 h-6 rounded-lg flex items-center justify-center transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+              style={{ background: 'rgba(26,58,107,0.08)', color: 'var(--accent-link)' }}
+              title="Presunúť do priečinka">
+              <MoveRight size={12} />
+            </button>
+          )}
+          {/* Vymazať */}
+          {isOwner && (
+            <button onClick={onDelete}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+              style={{ background: 'rgba(200,32,10,0.1)' }}>
+              <Trash2 size={14} />
+            </button>
+          )}
+        </div>
       </div>
+
       <p className="font-semibold text-sm leading-tight mb-1 line-clamp-2" style={{ color: 'var(--text)' }}>{file.original_name}</p>
       {file.description && <p className="text-xs mb-2 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{file.description}</p>}
       {showFolder && folderName && (
@@ -1084,12 +1704,13 @@ function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview, 
           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{folderName}</span>
         </div>
       )}
+
       <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-      <div className="text-xs min-w-0 mr-2" style={{ color: 'var(--text-muted)' }}>
+        <div className="text-xs min-w-0 mr-2" style={{ color: 'var(--text-muted)' }}>
           <p className="font-medium">{file.profiles?.first_name || ''} {file.profiles?.last_name || ''}</p>
           <div className="flex items-center gap-1 mt-0.5">
             <Clock size={10} /> <span>{date}</span>
-            {file.file_size && <span>- {formatFileSize(file.file_size)}</span>}
+            {file.file_size && <span>– {formatFileSize(file.file_size)}</span>}
           </div>
         </div>
         <div className="flex items-center gap-1.5">
