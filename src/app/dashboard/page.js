@@ -10,7 +10,7 @@ import {
   Search, AlertCircle, FolderOpen, X, Eye, EyeOff, CheckCircle, Folder,
   ChevronRight, FolderPlus, KeyRound, UserX, ChevronDown, ZoomIn, Menu,
   Star, BarChart2, ArrowUpDown, Filter, MoveRight, Pencil, Bell,
-  CheckSquare, Square, PackageOpen, SortAsc, SortDesc,
+  CheckSquare,
 } from 'lucide-react';
 import ThemeToggle from '@/app/components/ThemeToggle';
 
@@ -123,6 +123,7 @@ export default function Dashboard() {
 
   // ─── Obľúbené ───
   const [favorites, setFavorites] = useState(() => {
+    if (typeof window === 'undefined') return [];
     try { return JSON.parse(localStorage.getItem('sc_favorites') || '[]'); } catch { return []; }
   });
   const [showFavorites, setShowFavorites] = useState(false);
@@ -130,6 +131,7 @@ export default function Dashboard() {
   // ─── Notifikácie ───
   const [notifCount, setNotifCount] = useState(0);
   const [lastSeenAt, setLastSeenAt] = useState(() => {
+    if (typeof window === 'undefined') return null;
     try { return localStorage.getItem('sc_last_seen') || null; } catch { return null; }
   });
 
@@ -205,11 +207,15 @@ export default function Dashboard() {
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'files',
         filter: `class=eq.${profile.class}`,
-      }, payload => {
+      }, async payload => {
         if (payload.new.uploaded_by !== profile.id) {
+          // Načítame profil nahrávača aby sa zobrazilo meno
+          const { data: authorProfile } = await supabase
+            .from('profiles').select('first_name, last_name').eq('id', payload.new.uploaded_by).single();
+          const newFile = { ...payload.new, profiles: authorProfile || null };
           setNotifCount(prev => prev + 1);
-          setAllFiles(prev => [{ ...payload.new, profiles: null }, ...prev]);
-          setFiles(prev => [{ ...payload.new, profiles: null }, ...prev]);
+          setAllFiles(prev => [newFile, ...prev]);
+          setFiles(prev => [newFile, ...prev]);
         }
       })
       .subscribe();
@@ -239,6 +245,15 @@ export default function Dashboard() {
   // ══════════════════════════════════════════════════════════
   // BULK AKCIE
   // ══════════════════════════════════════════════════════════
+
+  // Keď user prepne na obľúbené/vyhľadávanie, vypneme bulk mode
+  function toggleFavoritesView() {
+    setShowFavorites(v => !v);
+    setSearch('');
+    setBulkSelected(new Set());
+    setBulkMode(false);
+  }
+
   function toggleBulkSelect(fileId) {
     setBulkSelected(prev => {
       const next = new Set(prev);
@@ -260,7 +275,8 @@ export default function Dashboard() {
   async function bulkDownload() {
     if (bulkSelected.size === 0) return;
     setBulkDownloading(true);
-    const toDownload = allFiles.filter(f => bulkSelected.has(f.id));
+    // Použijeme filteredFiles ako zdroj — obsahuje len aktuálne viditeľné súbory
+    const toDownload = filteredFiles.filter(f => bulkSelected.has(f.id));
     for (const file of toDownload) {
       try {
         const url = await getSignedUrl(file.file_name, 120);
@@ -1325,7 +1341,7 @@ export default function Dashboard() {
                 {showFavorites ? '⭐ Obľúbené' : globalSearch ? `Výsledky hľadania "${search}"` : 'Priečinky a súbory triedy'}
               </h3>
               {/* Obľúbené toggle */}
-              <button onClick={() => { setShowFavorites(v => !v); setSearch(''); setBulkSelected(new Set()); }}
+              <button onClick={toggleFavoritesView}
                 className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold transition-all"
                 style={showFavorites
                   ? { background: 'rgba(245,158,11,0.2)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.4)' }
@@ -1532,7 +1548,7 @@ export default function Dashboard() {
                   onPreview={openLightbox}
                   onDownload={() => downloadFile(file)}
                   onToggleFavorite={() => toggleFavorite(file.id)}
-                  onMove={() => { setMoveFileModal(file); setMoveTargetFolderId(file.folder_id || ''); setMoveError(''); }}
+                  onMove={() => { setMoveFileModal(file); setMoveTargetFolderId(file.folder_id || '__root__'); setMoveError(''); }}
                   onToggleSelect={() => toggleBulkSelect(file.id)}
                   folderName={(globalSearch || showFavorites) && file.folder_id ? folders.find(f => f.id === file.folder_id)?.name : null}
                 />
@@ -1563,7 +1579,6 @@ export default function Dashboard() {
 // ─── UPLOAD CHART KOMPONENT ───────────────────────────────────────────────────
 function UploadChart({ days }) {
   const maxCount = Math.max(...days.map(d => d.count), 1);
-  const last7 = days.slice(-7);
   // Zobrazíme len posledných 14 dní aby sa zmestilo
   const visible = days.slice(-14);
 
