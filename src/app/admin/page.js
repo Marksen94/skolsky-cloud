@@ -9,10 +9,11 @@ import {
   Users, FileText, CheckCircle, XCircle, Trash2, LogOut, Shield, Clock,
   Search, Filter, Download, CloudUpload, AlertCircle, Folder,
   FolderOpen, X, ChevronRight, FolderPlus, KeyRound, ChevronDown, Eye, EyeOff,
+  Megaphone, Plus, ToggleLeft, ToggleRight,
 } from 'lucide-react';
 import ThemeToggle from '@/app/components/ThemeToggle';
 
-const TABS = ['Žiadosti', 'Žiaci', 'Súbory'];
+const TABS = ['Žiadosti', 'Žiaci', 'Súbory', 'Oznamy'];
 
 export default function AdminPage() {
   const router = useRouter();
@@ -32,6 +33,56 @@ export default function AdminPage() {
   const [confirmModal, setConfirmModal] = useState(null);
   function askConfirm({ title, message, danger = true, onConfirm }) {
     setConfirmModal({ title, message, danger, onConfirm });
+  }
+
+  // Oznamy
+  const [announcements, setAnnouncements] = useState([]);
+  const [announceSaving, setAnnounceSaving] = useState(false);
+  const [announceError, setAnnounceError] = useState('');
+  const [newAnnounce, setNewAnnounce] = useState({ title: '', message: '', class: '', color: 'blue', active: true });
+
+  async function loadAnnouncements() {
+    const { data, error } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
+    if (!error) setAnnouncements(data || []);
+  }
+
+  async function saveAnnouncement(e) {
+    e.preventDefault();
+    if (!newAnnounce.message.trim() || !newAnnounce.class) { setAnnounceError('Vyplň triedu a správu.'); return; }
+    setAnnounceSaving(true); setAnnounceError('');
+    try {
+      const { error } = await supabase.from('announcements').insert({
+        title: newAnnounce.title.trim() || null,
+        message: newAnnounce.message.trim(),
+        class: newAnnounce.class,
+        color: newAnnounce.color,
+        active: newAnnounce.active,
+        created_by: adminProfile.id,
+      });
+      if (error) throw error;
+      setNewAnnounce({ title: '', message: '', class: '', color: 'blue', active: true });
+      await loadAnnouncements();
+    } catch (err) {
+      setAnnounceError('Chyba: ' + err.message);
+    } finally {
+      setAnnounceSaving(false);
+    }
+  }
+
+  async function toggleAnnouncement(id, active) {
+    await supabase.from('announcements').update({ active }).eq('id', id);
+    setAnnouncements(prev => prev.map(a => a.id === id ? { ...a, active } : a));
+  }
+
+  async function deleteAnnouncement(id) {
+    askConfirm({
+      title: 'Vymazať oznam?',
+      message: 'Oznam bude natrvalo vymazaný.',
+      onConfirm: async () => {
+        await supabase.from('announcements').delete().eq('id', id);
+        setAnnouncements(prev => prev.filter(a => a.id !== id));
+      },
+    });
   }
 
   // Admin profil modal
@@ -169,7 +220,7 @@ export default function AdminPage() {
       if (profErr) throw profErr;
       if (!prof?.is_admin) { router.push('/dashboard'); return; }
       setAdminProfile(prof);
-      await Promise.all([loadPending(), loadApproved(), loadFiles()]);
+      await Promise.all([loadPending(), loadApproved(), loadFiles(), loadAnnouncements()]);
     } catch (err) {
       console.error('Error checking admin:', err);
       router.push('/dashboard');
@@ -995,6 +1046,111 @@ export default function AdminPage() {
                 </table>
                 {filteredFiles.length === 0 && <p className="text-center py-10 text-sm" style={{ color: 'var(--text-muted)' }}>Žiadne súbory nezodpovedajú filtru.</p>}
               </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'Oznamy' && (
+          <div className="space-y-5 animate-fade-in">
+            {/* Nový oznam form */}
+            <div className="card shadow-card">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(168,85,247,0.12)' }}>
+                  <Megaphone size={16} style={{ color: '#a855f7' }} />
+                </div>
+                <h3 className="font-bold" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>Nový oznam pre triedu</h3>
+              </div>
+              <form onSubmit={saveAnnouncement} className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text)' }}>Trieda *</label>
+                    <select className="input-field py-2 text-sm" value={newAnnounce.class} onChange={e => setNewAnnounce(p => ({ ...p, class: e.target.value }))} required>
+                      <option value="">-- Vyber triedu --</option>
+                      {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text)' }}>Farba</label>
+                    <select className="input-field py-2 text-sm" value={newAnnounce.color} onChange={e => setNewAnnounce(p => ({ ...p, color: e.target.value }))}>
+                      <option value="blue">🔵 Modrá (info)</option>
+                      <option value="green">🟢 Zelená (ok)</option>
+                      <option value="red">🔴 Červená (dôležité)</option>
+                      <option value="purple">🟣 Fialová (udalosť)</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text)' }}>Nadpis (voliteľné)</label>
+                  <input type="text" className="input-field py-2 text-sm" placeholder="napr. Zajtra nie je škola"
+                    value={newAnnounce.title} onChange={e => setNewAnnounce(p => ({ ...p, title: e.target.value }))} maxLength={80} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text)' }}>Správa *</label>
+                  <textarea className="input-field py-2 text-sm resize-none" rows={3} placeholder="Text oznamu..."
+                    value={newAnnounce.message} onChange={e => setNewAnnounce(p => ({ ...p, message: e.target.value }))} maxLength={500} required />
+                </div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <button type="button" onClick={() => setNewAnnounce(p => ({ ...p, active: !p.active }))}>
+                      {newAnnounce.active
+                        ? <ToggleRight size={24} style={{ color: '#10b981' }} />
+                        : <ToggleLeft size={24} style={{ color: 'var(--text-muted)' }} />}
+                    </button>
+                    <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{newAnnounce.active ? 'Aktívny (viditeľný)' : 'Neaktívny (skrytý)'}</span>
+                  </label>
+                  <button type="submit" disabled={announceSaving}
+                    className="btn-primary flex items-center gap-2 ml-auto">
+                    <Plus size={15} /> {announceSaving ? 'Ukladám...' : 'Zverejniť oznam'}
+                  </button>
+                </div>
+                {announceError && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm" style={{ background: 'rgba(200,32,10,0.1)', color: '#ef4444', border: '1px solid rgba(200,32,10,0.25)' }}>
+                    <AlertCircle size={13} /> {announceError}
+                  </div>
+                )}
+              </form>
+            </div>
+
+            {/* Zoznam oznamov */}
+            <div className="card shadow-card">
+              <h3 className="font-bold mb-4" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>Všetky oznamy</h3>
+              {announcements.length === 0 ? (
+                <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>Žiadne oznamy.</p>
+              ) : (
+                <div className="space-y-3">
+                  {announcements.map(a => {
+                    const color = a.color === 'red' ? '#ef4444' : a.color === 'green' ? '#10b981' : a.color === 'purple' ? '#a855f7' : 'var(--accent-link)';
+                    const bg = a.color === 'red' ? 'rgba(220,38,38,0.08)' : a.color === 'green' ? 'rgba(5,150,105,0.08)' : a.color === 'purple' ? 'rgba(139,92,246,0.08)' : 'rgba(26,58,107,0.08)';
+                    return (
+                      <div key={a.id} className="flex items-start gap-3 p-4 rounded-2xl"
+                        style={{ background: bg, border: `1px solid ${bg.replace('0.08', '0.25')}`, opacity: a.active ? 1 : 0.55 }}>
+                        <Megaphone size={16} className="flex-shrink-0 mt-0.5" style={{ color }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: 'var(--accent-link)' }}>{a.class}</span>
+                            {a.title && <span className="font-semibold text-sm" style={{ color: 'var(--text)' }}>{a.title}</span>}
+                            {!a.active && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}>skrytý</span>}
+                          </div>
+                          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{a.message}</p>
+                          <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>{new Date(a.created_at).toLocaleDateString('sk-SK')}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <button onClick={() => toggleAnnouncement(a.id, !a.active)} title={a.active ? 'Skryť' : 'Zobraziť'}>
+                            {a.active
+                              ? <ToggleRight size={20} style={{ color: '#10b981' }} />
+                              : <ToggleLeft size={20} style={{ color: 'var(--text-muted)' }} />}
+                          </button>
+                          <button onClick={() => deleteAnnouncement(a.id)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all"
+                            style={{ background: 'rgba(200,32,10,0.08)' }}>
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -10,7 +10,7 @@ import {
   Search, AlertCircle, FolderOpen, X, Eye, EyeOff, CheckCircle, Folder,
   ChevronRight, FolderPlus, KeyRound, UserX, ChevronDown, ZoomIn, Menu,
   Star, BarChart2, ArrowUpDown, Filter, MoveRight, Pencil, Bell,
-  CheckSquare,
+  CheckSquare, Megaphone, History,
 } from 'lucide-react';
 import ThemeToggle from '@/app/components/ThemeToggle';
 
@@ -150,6 +150,20 @@ export default function Dashboard() {
 
   // ─── Lightbox ───
   const [lightboxFile, setLightboxFile] = useState(null);
+
+  // ─── Naposledy zobrazené ───
+  const [recentFiles, setRecentFiles] = useState(() => {
+    if (typeof window === 'undefined') return [];
+    try { return JSON.parse(localStorage.getItem('sc_recent') || '[]'); } catch { return []; }
+  });
+
+  // ─── Oznamovacia tabuľa ───
+  const [announcement, setAnnouncement] = useState(null);
+  const [announcementDismissed, setAnnouncementDismissed] = useState(false);
+
+  // ─── Drag & drop na priečinok ───
+  const [dragOverFolderId, setDragOverFolderId] = useState(null);
+  const [draggingFileId, setDraggingFileId] = useState(null);
 
   // ─── Paginacia ───
   const [selectedFiles, setSelectedFiles] = useState([]); // upload front
@@ -395,6 +409,29 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => { loadUser(); }, []);
+
+  // Načítaj oznam pre danú triedu
+  useEffect(() => {
+    if (!profile) return;
+    async function loadAnnouncement() {
+      const { data } = await supabase
+        .from('announcements')
+        .select('*')
+        .eq('class', profile.class)
+        .eq('active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) setAnnouncement(data);
+    }
+    loadAnnouncement();
+    // Real-time update
+    const ch = supabase.channel(`announce-${profile.class}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements', filter: `class=eq.${profile.class}` }, () => {
+        loadAnnouncement();
+      }).subscribe();
+    return () => supabase.removeChannel(ch);
+  }, [profile]);
 
   useEffect(() => {
     const isOverlayOpen = !!(
@@ -730,8 +767,43 @@ export default function Dashboard() {
       const signedUrl = await getSignedUrl(file.file_name, 600);
       if (!signedUrl) { askConfirm({ title: 'Chyba', message: 'URL sa nepodarilo vygenerovať.', danger: false, onConfirm: () => {} }); return; }
       setLightboxFile({ ...file, signedUrl });
+      // Pridaj do naposledy zobrazených
+      setRecentFiles(prev => {
+        const filtered = prev.filter(f => f.id !== file.id);
+        const next = [{ id: file.id, original_name: file.original_name, file_type: file.file_type, seenAt: new Date().toISOString() }, ...filtered].slice(0, 8);
+        try { localStorage.setItem('sc_recent', JSON.stringify(next)); } catch {}
+        return next;
+      });
     } catch (err) {
       askConfirm({ title: 'Chyba', message: 'Náhľad sa nepodarilo načítať: ' + err.message, danger: false, onConfirm: () => {} });
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // DRAG & DROP NA PRIEČINOK
+  // ══════════════════════════════════════════════════════════
+  function onFileDragStart(fileId) {
+    setDraggingFileId(fileId);
+  }
+
+  function onFileDragEnd() {
+    setDraggingFileId(null);
+    setDragOverFolderId(null);
+  }
+
+  async function onDropOnFolder(folderId) {
+    if (!draggingFileId) return;
+    setDragOverFolderId(null);
+    setDraggingFileId(null);
+    const file = allFiles.find(f => f.id === draggingFileId);
+    if (!file || file.folder_id === folderId) return;
+    try {
+      const { error } = await supabase.from('files').update({ folder_id: folderId }).eq('id', draggingFileId);
+      if (error) throw error;
+      setFiles(prev => prev.map(f => f.id === draggingFileId ? { ...f, folder_id: folderId } : f));
+      setAllFiles(prev => prev.map(f => f.id === draggingFileId ? { ...f, folder_id: folderId } : f));
+    } catch (err) {
+      askConfirm({ title: 'Chyba', message: 'Presun zlyhal: ' + err.message, danger: false, onConfirm: () => {} });
     }
   }
 
@@ -799,17 +871,34 @@ export default function Dashboard() {
             style={{ background: 'rgba(255,255,255,0.1)', maxWidth: '70vw', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
             {lightboxFile.original_name}
           </div>
-          <img src={lightboxFile.signedUrl} alt={lightboxFile.original_name}
-            onClick={e => e.stopPropagation()}
-            className="animate-fade-in"
-            style={{ maxWidth: '92vw', maxHeight: '86vh', objectFit: 'contain', borderRadius: '12px', boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }} />
+          {lightboxFile.file_type?.startsWith('image/') ? (
+            <img src={lightboxFile.signedUrl} alt={lightboxFile.original_name}
+              onClick={e => e.stopPropagation()}
+              className="animate-fade-in"
+              style={{ maxWidth: '92vw', maxHeight: '86vh', objectFit: 'contain', borderRadius: '12px', boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }} />
+          ) : lightboxFile.file_type?.includes('pdf') ? (
+            <div onClick={e => e.stopPropagation()}
+              style={{ width: 'min(92vw, 900px)', height: '86vh', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }}>
+              <iframe src={lightboxFile.signedUrl + '#toolbar=1&navpanes=0'}
+                title={lightboxFile.original_name}
+                style={{ width: '100%', height: '100%', border: 'none', background: 'white' }} />
+            </div>
+          ) : (
+            <div onClick={e => e.stopPropagation()}
+              className="flex flex-col items-center justify-center gap-4 p-10 rounded-2xl"
+              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}>
+              <span className="text-6xl">{getFileIcon(lightboxFile.file_type)}</span>
+              <p className="text-white font-semibold">{lightboxFile.original_name}</p>
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>Náhľad nie je dostupný — stiahni súbor</p>
+            </div>
+          )}
           <a href={lightboxFile.signedUrl} download={lightboxFile.original_name} target="_blank" rel="noopener noreferrer"
             onClick={e => e.stopPropagation()}
             className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold text-white"
             style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}>
             <Download size={15} /> Stiahnuť
           </a>
-          <p className="absolute bottom-5 right-5 text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Klikni mimo pre zatvorenie</p>
+          <p className="absolute bottom-5 right-5 text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Esc alebo klikni mimo pre zatvorenie</p>
         </div>
       )}
 
@@ -1244,6 +1333,68 @@ export default function Dashboard() {
           </p>
         </div>
 
+        {/* ── OZNAM TRIEDY ──────────────────────────────── */}
+        {announcement && !announcementDismissed && (
+          <div className="animate-slide-up rounded-2xl p-4 flex items-start gap-3 relative"
+            style={{
+              background: announcement.color === 'red' ? 'rgba(220,38,38,0.1)'
+                : announcement.color === 'green' ? 'rgba(5,150,105,0.1)'
+                : announcement.color === 'purple' ? 'rgba(139,92,246,0.1)'
+                : 'rgba(26,58,107,0.1)',
+              border: `1px solid ${
+                announcement.color === 'red' ? 'rgba(220,38,38,0.3)'
+                : announcement.color === 'green' ? 'rgba(5,150,105,0.3)'
+                : announcement.color === 'purple' ? 'rgba(139,92,246,0.3)'
+                : 'rgba(26,58,107,0.3)'}`,
+            }}>
+            <Megaphone size={18} className="flex-shrink-0 mt-0.5"
+              style={{ color: announcement.color === 'red' ? '#ef4444' : announcement.color === 'green' ? '#10b981' : announcement.color === 'purple' ? '#a855f7' : 'var(--accent-link)' }} />
+            <div className="flex-1 min-w-0">
+              {announcement.title && (
+                <p className="font-bold text-sm mb-0.5" style={{ color: 'var(--text)' }}>{announcement.title}</p>
+              )}
+              <p className="text-sm" style={{ color: 'var(--text-muted)', whiteSpace: 'pre-wrap' }}>{announcement.message}</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>
+                {new Date(announcement.created_at).toLocaleDateString('sk-SK', { day: '2-digit', month: 'long', year: 'numeric' })}
+              </p>
+            </div>
+            <button onClick={() => setAnnouncementDismissed(true)}
+              className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center"
+              style={{ background: 'rgba(0,0,0,0.08)', color: 'var(--text-muted)' }}>
+              <X size={12} />
+            </button>
+          </div>
+        )}
+
+        {/* ── NAPOSLEDY ZOBRAZENÉ ───────────────────────── */}
+        {recentFiles.length > 0 && !globalSearch && !showFavorites && (
+          <div className="animate-slide-up">
+            <div className="flex items-center gap-2 mb-3">
+              <History size={14} style={{ color: 'var(--text-muted)' }} />
+              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Naposledy zobrazené</p>
+              <button onClick={() => {
+                setRecentFiles([]);
+                try { localStorage.removeItem('sc_recent'); } catch {}
+              }} className="ml-auto text-xs" style={{ color: 'var(--text-dim)' }}>Vymazať</button>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+              {recentFiles.map(rf => {
+                const full = allFiles.find(f => f.id === rf.id);
+                return (
+                  <button key={rf.id}
+                    onClick={() => full && openLightbox(full)}
+                    disabled={!full}
+                    className="flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all"
+                    style={{ background: 'var(--surface)', border: '1px solid var(--border)', opacity: full ? 1 : 0.5, maxWidth: '200px' }}>
+                    <span className="text-lg">{getFileIcon(rf.file_type)}</span>
+                    <span className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>{rf.original_name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Stat cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up">
           <StatCard icon={<BookOpen size={20} style={{ color: '#3b82f6' }} />} title="Súbory" value={allFiles.length} subtitle="celkom nahraných" color="blue" />
@@ -1515,9 +1666,13 @@ export default function Dashboard() {
                 return (
                   <FolderCard key={folder.id} folder={folder} childCount={childCount} fileCount={fileCount}
                     isOwner={folder.created_by === profile?.id}
+                    isDragOver={dragOverFolderId === folder.id}
                     onOpen={() => navigateToFolder(folder)}
                     onDelete={() => deleteFolder(folder)}
-                    onRename={() => { setRenamingFolder(folder); setRenameFolderName(folder.name); setRenameFolderError(''); }} />
+                    onRename={() => { setRenamingFolder(folder); setRenameFolderName(folder.name); setRenameFolderError(''); }}
+                    onDragOver={e => { e.preventDefault(); setDragOverFolderId(folder.id); }}
+                    onDragLeave={() => setDragOverFolderId(null)}
+                    onDrop={() => onDropOnFolder(folder.id)} />
                 );
               })}
             </div>
@@ -1551,6 +1706,8 @@ export default function Dashboard() {
                   onMove={() => { setMoveFileModal(file); setMoveTargetFolderId(file.folder_id || '__root__'); setMoveError(''); }}
                   onToggleSelect={() => toggleBulkSelect(file.id)}
                   folderName={(globalSearch || showFavorites) && file.folder_id ? folders.find(f => f.id === file.folder_id)?.name : null}
+                  onDragStart={() => onFileDragStart(file.id)}
+                  onDragEnd={onFileDragEnd}
                 />
               ))}
             </div>
@@ -1631,11 +1788,16 @@ function StatCard({ icon, title, value, subtitle, color }) {
 }
 
 // ─── FOLDER CARD ──────────────────────────────────────────────────────────────
-function FolderCard({ folder, childCount, fileCount, isOwner, onOpen, onDelete, onRename }) {
+function FolderCard({ folder, childCount, fileCount, isOwner, onOpen, onDelete, onRename, isDragOver, onDragOver, onDragLeave, onDrop }) {
   return (
-    <div className="group relative">
+    <div className="group relative" onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
       <button onClick={onOpen} className="w-full text-left p-4 rounded-2xl border transition-all duration-200 hover:shadow-sm"
-        style={{ borderColor: 'var(--border)', background: 'rgba(180,100,0,0.08)' }}>
+        style={{
+          borderColor: isDragOver ? '#f59e0b' : 'var(--border)',
+          background: isDragOver ? 'rgba(245,158,11,0.18)' : 'rgba(180,100,0,0.08)',
+          transform: isDragOver ? 'scale(1.03)' : 'scale(1)',
+          boxShadow: isDragOver ? '0 0 0 2px rgba(245,158,11,0.4)' : 'none',
+        }}>
         <div className="flex items-start justify-between mb-2">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(180,100,0,0.2)' }}>
             <Folder size={20} style={{ color: '#f59e0b' }} />
@@ -1666,12 +1828,17 @@ function FolderCard({ folder, childCount, fileCount, isOwner, onOpen, onDelete, 
 }
 
 // ─── FILE CARD ────────────────────────────────────────────────────────────────
-function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview, onDownload, isFavorite, onToggleFavorite, onMove, isSelected, bulkMode, onToggleSelect }) {
+function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview, onDownload, isFavorite, onToggleFavorite, onMove, isSelected, bulkMode, onToggleSelect, onDragStart, onDragEnd }) {
   const date = new Date(file.created_at).toLocaleDateString('sk-SK', { day: '2-digit', month: 'short', year: 'numeric' });
   const isImage = file.file_type?.startsWith('image/');
+  const isPdf = file.file_type?.includes('pdf');
 
   return (
-    <div className="file-card group relative" style={isSelected ? { border: '2px solid var(--accent-link)', background: 'rgba(26,58,107,0.06)' } : {}}>
+    <div className="file-card group relative"
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      style={isSelected ? { border: '2px solid var(--accent-link)', background: 'rgba(26,58,107,0.06)' } : {}}>
       {/* Bulk checkbox */}
       {bulkMode && (
         <button onClick={onToggleSelect}
@@ -1729,7 +1896,7 @@ function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview, 
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          {isImage && (
+          {(isImage || isPdf) && (
             <button onClick={() => onPreview(file)}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
               style={{ background: 'rgba(139,92,246,0.12)', color: '#a855f7' }}>
