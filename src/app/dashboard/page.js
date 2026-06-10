@@ -73,6 +73,8 @@ export default function Dashboard() {
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const searchDebounceRef = useRef(null);
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
@@ -80,6 +82,17 @@ export default function Dashboard() {
   const userMenuRef = useRef(null);
   const userMenuBtnRef = useRef(null);
   const messageTimeoutsRef = useRef({});
+
+  // ─── Školský rok ───
+  const schoolYearEndBanner = useMemo(() => {
+    const now = new Date();
+    const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
+    const endDate = new Date(year, 7, 31); // 31. august
+    const diffMs = endDate - now;
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays > 30 || diffDays < 0) return null;
+    return diffDays;
+  }, []);
 
   // ─── Modaly / panely ───
   const [showProfile, setShowProfile] = useState(false);
@@ -181,6 +194,13 @@ export default function Dashboard() {
   // COMPUTED – filtrovanie + zoraďovanie
   // ══════════════════════════════════════════════════════════
   const globalSearch = search.trim().length > 0;
+
+  function handleSearchInput(val) {
+    setSearchInput(val);
+    if (val) setShowFavorites(false);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => setSearch(val), 300);
+  }
 
   const filteredFiles = useMemo(() => {
     let base;
@@ -841,15 +861,7 @@ export default function Dashboard() {
   // ══════════════════════════════════════════════════════════
   // LOADING
   // ══════════════════════════════════════════════════════════
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
-      <div className="text-center">
-        <div className="w-10 h-10 border-t-transparent rounded-full animate-spin mx-auto mb-3"
-          style={{ borderWidth: '3px', borderStyle: 'solid', borderColor: 'var(--accent-link)', borderTopColor: 'transparent' }} />
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Načítavam...</p>
-      </div>
-    </div>
-  );
+  if (loading) return <DashboardSkeleton />;
 
   // ══════════════════════════════════════════════════════════
   // RENDER
@@ -937,14 +949,17 @@ export default function Dashboard() {
               <UserX size={18} /> Zrušenie účtu
             </button>
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', margin: '8px 0' }} />
+            {/* Theme toggle riadok */}
+            <div className="flex items-center justify-between px-4 py-3 rounded-2xl"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <span className="font-semibold text-white text-sm">Tmavý režim</span>
+              <ThemeToggle />
+            </div>
             <button onClick={async () => { setMobileMenuOpen(false); await supabase.auth.signOut(); router.push('/'); }}
               className="flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left font-semibold text-white"
               style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
               <LogOut size={18} style={{ color: 'rgba(255,255,255,0.6)' }} /> Odhlásiť
             </button>
-          </div>
-          <div className="absolute bottom-8 left-0 right-0 flex justify-center">
-            <ThemeToggle />
           </div>
         </div>
       )}
@@ -1395,6 +1410,29 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* ── KONIEC ŠKOLSKÉHO ROKA BANNER ──────────────── */}
+        {schoolYearEndBanner !== null && (
+          <div className="animate-slide-up rounded-2xl p-4 flex items-center gap-3"
+            style={{
+              background: schoolYearEndBanner <= 7 ? 'rgba(220,38,38,0.1)' : schoolYearEndBanner <= 14 ? 'rgba(245,158,11,0.1)' : 'rgba(26,58,107,0.08)',
+              border: `1px solid ${schoolYearEndBanner <= 7 ? 'rgba(220,38,38,0.3)' : schoolYearEndBanner <= 14 ? 'rgba(245,158,11,0.3)' : 'rgba(26,58,107,0.2)'}`,
+            }}>
+            <span className="text-2xl flex-shrink-0">
+              {schoolYearEndBanner <= 7 ? '🚨' : schoolYearEndBanner <= 14 ? '⚠️' : '📅'}
+            </span>
+            <div className="flex-1">
+              <p className="font-bold text-sm" style={{ color: 'var(--text)' }}>
+                {schoolYearEndBanner === 0 ? 'Dnes sa súbory triedy vymažú!' :
+                 schoolYearEndBanner === 1 ? 'Zajtra sa súbory triedy vymažú!' :
+                 `Za ${schoolYearEndBanner} dñí sa súbory triedy vymažú`}
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                31. augusta sa všetky súbory automaticky odstránia. Stiahni si dôležité súbory ešte dnes.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Stat cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up">
           <StatCard icon={<BookOpen size={20} style={{ color: '#3b82f6' }} />} title="Súbory" value={allFiles.length} subtitle="celkom nahraných" color="blue" />
@@ -1419,12 +1457,31 @@ export default function Dashboard() {
             style={{ borderColor: isDragActive ? 'var(--accent-link)' : 'var(--border)', background: isDragActive ? 'rgba(26,58,107,0.1)' : 'transparent' }}>
             <input {...getInputProps()} />
             {uploading ? (
-              <div className="flex flex-col items-center">
-                <div className="w-12 h-12 rounded-full animate-spin mx-auto mb-4"
-                  style={{ borderWidth: '4px', borderStyle: 'solid', borderColor: 'var(--accent-link)', borderTopColor: 'transparent' }} />
-                <p className="font-semibold text-sm" style={{ color: 'var(--accent-link)' }}>
-                  {uploadProgress.total > 1 ? `Nahrávam ${uploadProgress.current} / ${uploadProgress.total}...` : 'Nahrávam súbor...'}
-                </p>
+              <div className="flex flex-col items-center w-full px-4">
+                <div className="w-full max-w-xs mb-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="font-semibold text-sm" style={{ color: 'var(--accent-link)' }}>
+                      {uploadProgress.total > 1 ? `Nahrávam ${uploadProgress.current} / ${uploadProgress.total}` : 'Nahrávam súbor...'}
+                    </p>
+                    {uploadProgress.total > 0 && (
+                      <span className="text-xs font-bold" style={{ color: 'var(--accent-link)' }}>
+                        {Math.round((uploadProgress.current / uploadProgress.total) * 100)}%
+                      </span>
+                    )}
+                  </div>
+                  <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--surface-2)' }}>
+                    <div className="h-full rounded-full transition-all duration-300"
+                      style={{
+                        width: uploadProgress.total > 0 ? `${Math.round((uploadProgress.current / uploadProgress.total) * 100)}%` : '0%',
+                        background: 'linear-gradient(90deg, var(--accent-link), #a855f7)',
+                      }} />
+                  </div>
+                  {uploadProgress.total > 1 && (
+                    <p className="text-xs mt-1 text-center" style={{ color: 'var(--text-muted)' }}>
+                      {selectedFiles[uploadProgress.current - 1]?.name || ''}
+                    </p>
+                  )}
+                </div>
               </div>
             ) : selectedFiles.length > 0 ? (
               <div className="w-full" onClick={e => e.stopPropagation()}>
@@ -1570,9 +1627,9 @@ export default function Dashboard() {
               <div className="input-with-icon" style={{ minWidth: 0 }}>
                 <Search size={15} className="input-icon" />
                 <input className="input-inner text-sm" style={{ width: '140px' }}
-                  placeholder="Hľadaj..." value={search} onChange={e => { setSearch(e.target.value); if (e.target.value) setShowFavorites(false); }} />
-                {globalSearch && (
-                  <button onClick={() => setSearch('')} style={{ color: 'var(--text-muted)' }}><X size={13} /></button>
+                  placeholder="Hľadaj..." value={searchInput} onChange={e => handleSearchInput(e.target.value)} />
+                {searchInput && (
+                  <button onClick={() => { setSearchInput(''); setSearch(''); }} style={{ color: 'var(--text-muted)' }}><X size={13} /></button>
                 )}
               </div>
             </div>
@@ -1682,14 +1739,7 @@ export default function Dashboard() {
 
           {/* Prázdny stav */}
           {filteredFiles.length === 0 && visibleFolders.length === 0 ? (
-            <div className="text-center py-10">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: 'var(--surface-2)' }}>
-                {showFavorites ? <Star size={24} style={{ color: 'var(--text-dim)' }} /> : <BookOpen size={24} style={{ color: 'var(--text-dim)' }} />}
-              </div>
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                {showFavorites ? 'Zatiaľ žiadne obľúbené. Klikni na hviezdičku pri súbore.' : globalSearch ? 'Žiadne súbory nezodpovedajú hľadaniu.' : currentFolder ? 'Tento priečinok je prázdny.' : 'Trieda zatiaľ nemá žiadne materiály.'}
-              </p>
-            </div>
+            <EmptyState type={showFavorites ? 'favorites' : globalSearch ? 'search' : currentFolder ? 'folder' : 'class'} />
           ) : filteredFiles.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {filteredFiles.map(file => (
@@ -1729,6 +1779,177 @@ export default function Dashboard() {
           © 2026 RU-MONT s. r. o., Spojená škola Sečovce
         </p>
       </main>
+    </div>
+  );
+}
+
+// ─── DASHBOARD SKELETON ─────────────────────────────────────────────────────
+function DashboardSkeleton() {
+  return (
+    <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
+      {/* Header skeleton */}
+      <div className="school-header">
+        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl skeleton" />
+            <div className="space-y-1.5">
+              <div className="h-3.5 w-44 rounded-lg skeleton" />
+              <div className="h-2.5 w-20 rounded-lg skeleton" style={{ opacity: 0.6 }} />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl skeleton" />
+            <div className="hidden sm:flex items-center gap-3">
+              <div className="h-8 w-32 rounded-xl skeleton" />
+              <div className="w-9 h-9 rounded-xl skeleton" />
+              <div className="h-5 w-20 rounded-lg skeleton" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+        {/* Title */}
+        <div className="space-y-2">
+          <div className="h-8 w-48 rounded-2xl skeleton" />
+          <div className="h-4 w-64 rounded-xl skeleton" />
+        </div>
+        {/* Stat cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="rounded-3xl border p-4" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-2xl skeleton" />
+                <div className="h-3 w-16 rounded-lg skeleton" />
+              </div>
+              <div className="h-7 w-20 rounded-xl skeleton mb-1.5" />
+              <div className="h-3 w-28 rounded-lg skeleton" />
+            </div>
+          ))}
+        </div>
+        {/* Upload card */}
+        <div className="card">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl skeleton" />
+            <div className="space-y-1.5">
+              <div className="h-5 w-40 rounded-lg skeleton" />
+              <div className="h-3 w-64 rounded-lg skeleton" />
+            </div>
+          </div>
+          <div className="border-2 border-dashed rounded-2xl p-8 flex flex-col items-center gap-3" style={{ borderColor: 'var(--border)' }}>
+            <div className="w-14 h-14 rounded-2xl skeleton" />
+            <div className="h-4 w-44 rounded-lg skeleton" />
+            <div className="h-3 w-52 rounded-lg skeleton" />
+          </div>
+        </div>
+        {/* Files card */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg skeleton" />
+              <div className="h-5 w-48 rounded-lg skeleton" />
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-24 rounded-xl skeleton" />
+              <div className="h-7 w-24 rounded-xl skeleton" />
+              <div className="h-8 w-32 rounded-xl skeleton" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="rounded-2xl border p-4" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                <div className="flex items-start justify-between mb-3">
+                  <div className="w-9 h-9 rounded-xl skeleton" />
+                  <div className="w-6 h-6 rounded-lg skeleton" />
+                </div>
+                <div className="h-4 w-3/4 rounded-lg skeleton mb-1.5" />
+                <div className="h-3 w-1/2 rounded-lg skeleton mb-4" />
+                <div className="flex items-center justify-between pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+                  <div className="space-y-1">
+                    <div className="h-3 w-24 rounded-lg skeleton" />
+                    <div className="h-2.5 w-28 rounded-lg skeleton" />
+                  </div>
+                  <div className="flex gap-1.5">
+                    <div className="h-7 w-16 rounded-lg skeleton" />
+                    <div className="h-7 w-20 rounded-lg skeleton" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// ─── EMPTY STATE ──────────────────────────────────────────────────────────────
+function EmptyState({ type = 'class' }) {
+  const configs = {
+    search: {
+      svg: (
+        <svg viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '120px', height: '100px' }}>
+          <circle cx="50" cy="45" r="28" stroke="var(--border)" strokeWidth="4" fill="var(--surface-2)" />
+          <circle cx="50" cy="45" r="18" fill="var(--surface-3)" />
+          <line x1="70" y1="65" x2="90" y2="85" stroke="var(--border)" strokeWidth="5" strokeLinecap="round" />
+          <line x1="42" y1="45" x2="58" y2="45" stroke="var(--text-dim)" strokeWidth="3" strokeLinecap="round" />
+          <line x1="50" y1="37" x2="50" y2="53" stroke="var(--text-dim)" strokeWidth="3" strokeLinecap="round" />
+        </svg>
+      ),
+      title: 'Žiadne výsledky',
+      text: 'Skús iný výraz alebo skontroluj pravopis.',
+    },
+    favorites: {
+      svg: (
+        <svg viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '120px', height: '100px' }}>
+          <path d="M60 75 L30 50 C20 42 20 28 30 22 C38 17 48 20 60 32 C72 20 82 17 90 22 C100 28 100 42 90 50 Z" stroke="var(--border)" strokeWidth="4" fill="var(--surface-2)" strokeLinejoin="round" />
+          <path d="M60 65 L38 48 C32 43 32 34 38 30 C43 27 50 30 60 40 C70 30 77 27 82 30 C88 34 88 43 82 48 Z" fill="var(--surface-3)" />
+        </svg>
+      ),
+      title: 'Žiadne obľúbené',
+      text: 'Klikni na hviezdičku pri súbore a pridáš ho sem.',
+    },
+    folder: {
+      svg: (
+        <svg viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '120px', height: '100px' }}>
+          <rect x="15" y="35" width="90" height="55" rx="8" fill="var(--surface-2)" stroke="var(--border)" strokeWidth="3" />
+          <path d="M15 45 L105 45" stroke="var(--border)" strokeWidth="3" />
+          <rect x="15" y="28" width="40" height="17" rx="6" fill="var(--surface-3)" stroke="var(--border)" strokeWidth="3" />
+          <line x1="42" y1="60" x2="78" y2="60" stroke="var(--text-dim)" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="6 4" />
+          <line x1="42" y1="70" x2="65" y2="70" stroke="var(--text-dim)" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="6 4" />
+        </svg>
+      ),
+      title: 'Prázdny priečinok',
+      text: 'Pretiahni sem súbory alebo klikni na nahranie vyššie.',
+    },
+    class: {
+      svg: (
+        <svg viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '120px', height: '100px' }}>
+          <rect x="20" y="20" width="35" height="45" rx="5" fill="var(--surface-2)" stroke="var(--border)" strokeWidth="3" />
+          <rect x="65" y="30" width="35" height="35" rx="5" fill="var(--surface-3)" stroke="var(--border)" strokeWidth="3" />
+          <line x1="28" y1="33" x2="47" y2="33" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" />
+          <line x1="28" y1="41" x2="47" y2="41" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" />
+          <line x1="28" y1="49" x2="38" y2="49" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" />
+          <line x1="73" y1="42" x2="92" y2="42" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" />
+          <line x1="73" y1="50" x2="85" y2="50" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" />
+          <circle cx="60" cy="80" r="10" fill="var(--surface-2)" stroke="var(--border)" strokeWidth="2.5" />
+          <line x1="60" y1="75" x2="60" y2="81" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" />
+          <circle cx="60" cy="84" r="1.2" fill="var(--text-dim)" />
+        </svg>
+      ),
+      title: 'Trieda je zatiaľ prázdna',
+      text: 'Buď prvý, kto nahrá materiál pre spolužiakov!',
+    },
+  };
+
+  const c = configs[type] || configs.class;
+
+  return (
+    <div className="flex flex-col items-center justify-center py-14 gap-4 animate-fade-in">
+      <div style={{ opacity: 0.7 }}>{c.svg}</div>
+      <div className="text-center">
+        <p className="font-bold text-base mb-1" style={{ color: 'var(--text)' }}>{c.title}</p>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{c.text}</p>
+      </div>
     </div>
   );
 }

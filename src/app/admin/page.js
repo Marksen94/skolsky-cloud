@@ -9,7 +9,7 @@ import {
   Users, FileText, CheckCircle, XCircle, Trash2, LogOut, Shield, Clock,
   Search, Filter, Download, CloudUpload, AlertCircle, Folder,
   FolderOpen, X, ChevronRight, FolderPlus, KeyRound, ChevronDown, Eye, EyeOff,
-  Megaphone, Plus, ToggleLeft, ToggleRight,
+  Megaphone, Plus, ToggleLeft, ToggleRight, Copy,
 } from 'lucide-react';
 import ThemeToggle from '@/app/components/ThemeToggle';
 
@@ -110,6 +110,59 @@ export default function AdminPage() {
   // Export všetkých súborov ako ZIP
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
+
+  // Kopírovanie súboru do inej triedy
+  const [copyFileModal, setCopyFileModal] = useState(null); // file object
+  const [copyTargetClass, setCopyTargetClass] = useState('');
+  const [copySaving, setCopySaving] = useState(false);
+  const [copyError, setCopyError] = useState('');
+  const [copySuccess, setCopySuccess] = useState('');
+
+  async function copyFileToClass() {
+    if (!copyFileModal || !copyTargetClass) return;
+    if (copyTargetClass === copyFileModal.class) {
+      setCopyError('Súbor je už v tejto triede.');
+      return;
+    }
+    setCopySaving(true); setCopyError(''); setCopySuccess('');
+    try {
+      // 1. Stiahneme blob z existujúcej URL
+      const signedUrl = await getSignedUrl(copyFileModal.file_name, 60);
+      if (!signedUrl) throw new Error('Nepodarilo sa získať URL súboru.');
+      const resp = await fetch(signedUrl);
+      if (!resp.ok) throw new Error('Stiahnutie súboru zlyhalo.');
+      const blob = await resp.blob();
+      // 2. Nahráme do novej triedy
+      const newName = `${copyTargetClass}/${Date.now()}_${copyFileModal.original_name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('class-files')
+        .upload(newName, blob, { cacheControl: '3600', upsert: false, contentType: copyFileModal.file_type });
+      if (uploadErr) throw uploadErr;
+      // 3. Záznam v DB
+      const { error: dbErr } = await supabase.from('files').insert({
+        uploaded_by: adminProfile.id,
+        class: copyTargetClass,
+        file_name: newName,
+        original_name: copyFileModal.original_name,
+        file_url: newName,
+        file_type: copyFileModal.file_type,
+        file_size: copyFileModal.file_size,
+        description: copyFileModal.description || null,
+        folder_id: null,
+      });
+      if (dbErr) { await supabase.storage.from('class-files').remove([newName]); throw dbErr; }
+      setCopySuccess(`Súbor bol skopírovaný do triedy ${copyTargetClass}.`);
+      // Refresh files list
+      const { data: newFiles } = await supabase.from('files')
+        .select('*, profiles(first_name, last_name)')
+        .order('created_at', { ascending: false });
+      if (newFiles) setFiles(newFiles);
+    } catch (err) {
+      setCopyError('Chyba: ' + (err.message || err));
+    } finally {
+      setCopySaving(false);
+    }
+  }
 
   async function handleExportAll() {
     setExporting(true);
@@ -628,6 +681,67 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* ── KOPÍROVANIE SÚBORU MODAL ──────────────────── */}
+      {copyFileModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" style={{ background: 'var(--overlay)' }}>
+          <div className="rounded-3xl shadow-2xl w-full max-w-sm p-6 relative animate-slide-up" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <button onClick={() => setCopyFileModal(null)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--surface-2)' }}>
+              <X size={16} style={{ color: 'var(--text-muted)' }} />
+            </button>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(5,150,105,0.12)' }}>
+                <Copy size={16} style={{ color: '#10b981' }} />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Skopírovať do triedy</h2>
+                <p className="text-xs truncate max-w-[200px]" style={{ color: 'var(--text-muted)' }}>{copyFileModal.original_name}</p>
+              </div>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--text)' }}>Cieľová trieda</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-52 overflow-y-auto">
+                {CLASSES.filter(c => c !== copyFileModal.class).map(cls => (
+                  <button key={cls} onClick={() => setCopyTargetClass(cls)}
+                    className="px-3 py-2 rounded-xl text-sm font-semibold transition-all text-center"
+                    style={copyTargetClass === cls
+                      ? { background: 'rgba(5,150,105,0.2)', color: '#10b981', border: '1.5px solid #10b981' }
+                      : { background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                    {cls}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                Aktuálna trieda: <span className="font-bold" style={{ color: 'var(--accent-link)' }}>{copyFileModal.class}</span>
+              </p>
+            </div>
+            {copyError && (
+              <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-xl text-sm" style={{ background: 'rgba(200,32,10,0.1)', color: '#ef4444', border: '1px solid rgba(200,32,10,0.25)' }}>
+                <AlertCircle size={13} /> {copyError}
+              </div>
+            )}
+            {copySuccess && (
+              <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-xl text-sm" style={{ background: 'rgba(5,150,105,0.1)', color: '#10b981', border: '1px solid rgba(5,150,105,0.25)' }}>
+                <CheckCircle size={13} /> {copySuccess}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button onClick={() => setCopyFileModal(null)}
+                className="flex-1 py-2.5 rounded-xl font-semibold text-sm"
+                style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                {copySuccess ? 'Zatvoriť' : 'Zrušiť'}
+              </button>
+              {!copySuccess && (
+                <button onClick={copyFileToClass} disabled={copySaving || !copyTargetClass}
+                  className="btn-primary flex-1 flex items-center justify-center gap-2">
+                  {copySaving ? 'Kopírujem...' : <><Copy size={14} /> Skopírovať</>}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="school-header">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between relative z-10">
           <div className="flex items-center gap-3">
@@ -1037,6 +1151,13 @@ export default function AdminPage() {
                               a.href = url; a.download = file.original_name; a.target = '_blank';
                               document.body.appendChild(a); a.click(); document.body.removeChild(a);
                             }} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color: 'var(--accent-link)' }}><Download size={14} /></button>
+                            <button
+                              onClick={() => { setCopyFileModal(file); setCopyTargetClass(''); setCopyError(''); setCopySuccess(''); }}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+                              style={{ color: '#10b981', background: 'rgba(5,150,105,0.1)' }}
+                              title="Skopírovať do inej triedy">
+                              <Copy size={13} />
+                            </button>
                             <button onClick={() => deleteFile(file)} className="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all"><Trash2 size={14} /></button>
                           </div>
                         </td>
