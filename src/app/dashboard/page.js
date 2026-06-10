@@ -184,6 +184,8 @@ export default function Dashboard() {
   const [hasMoreFiles, setHasMoreFiles] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  const [deletingFolder, setDeletingFolder] = useState(false);
+
   // ─── Confirm modal ───
   const [confirmModal, setConfirmModal] = useState(null);
   function askConfirm({ title, message, danger = true, onConfirm }) {
@@ -284,6 +286,8 @@ export default function Dashboard() {
   function toggleFavoritesView() {
     setShowFavorites(v => !v);
     setSearch('');
+    setSearchInput('');
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     setBulkSelected(new Set());
     setBulkMode(false);
   }
@@ -456,11 +460,11 @@ export default function Dashboard() {
   useEffect(() => {
     const isOverlayOpen = !!(
       mobileMenuOpen || lightboxFile || showProfile || confirmModal ||
-      showDeleteRequest || renamingFolder || moveFileModal
+      showDeleteRequest || renamingFolder || moveFileModal || deletingFolder
     );
     document.body.style.overflow = isOverlayOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [mobileMenuOpen, lightboxFile, showProfile, confirmModal, showDeleteRequest, renamingFolder, moveFileModal]);
+  }, [mobileMenuOpen, lightboxFile, showProfile, confirmModal, showDeleteRequest, renamingFolder, moveFileModal, deletingFolder]);
 
   // Escape pre lightbox
   useEffect(() => {
@@ -580,7 +584,7 @@ export default function Dashboard() {
       title: 'Vymazať priečinok?',
       message: `Priečinok "${folder.name}" a všetok obsah bude natrvalo vymazaný.`,
       onConfirm: async () => {
-        setLoading(true);
+        setDeletingFolder(true);
         try {
           const { data: allFoldersData, error: foldersErr } = await supabase.from('folders').select('id, parent_id').eq('class', profile.class);
           if (foldersErr) throw foldersErr;
@@ -610,7 +614,7 @@ export default function Dashboard() {
           await loadFiles(profile.class);
         } catch (err) {
           askConfirm({ title: 'Chyba', message: err.message, danger: false, onConfirm: () => {} });
-        } finally { setLoading(false); }
+        } finally { setDeletingFolder(false); }
       },
     });
   }
@@ -699,12 +703,14 @@ export default function Dashboard() {
 
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
-      setUploadProgress({ current: i + 1, total: selectedFiles.length });
+      // Nastav progress pred začiatkom uploadu tohto súboru (nie počečas)
+      setUploadProgress({ current: i, total: selectedFiles.length });
       if (!ALLOWED_TYPES.includes(file.type)) { errors.push(`${file.name}: Nepovolený typ.`); continue; }
       const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
       const path = `${profile.class}/${safeName}`;
       const { error: uploadErr } = await supabase.storage.from('class-files').upload(path, file, { cacheControl: '3600', upsert: false });
       if (uploadErr) { errors.push(`${file.name}: ${uploadErr.message}`); continue; }
+      setUploadProgress({ current: i + 1, total: selectedFiles.length }); // file nahratý
       const { data: inserted, error: dbErr } = await supabase.from('files').insert({
         uploaded_by: profile.id, class: profile.class, file_name: path,
         original_name: file.name, file_url: path, file_type: file.type, file_size: file.size,
@@ -1424,7 +1430,7 @@ export default function Dashboard() {
               <p className="font-bold text-sm" style={{ color: 'var(--text)' }}>
                 {schoolYearEndBanner === 0 ? 'Dnes sa súbory triedy vymažú!' :
                  schoolYearEndBanner === 1 ? 'Zajtra sa súbory triedy vymažú!' :
-                 `Za ${schoolYearEndBanner} dñí sa súbory triedy vymažú`}
+                 `Za ${schoolYearEndBanner} dní sa súbory triedy vymažú`}
               </p>
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                 31. augusta sa všetky súbory automaticky odstránia. Stiahni si dôležité súbory ešte dnes.

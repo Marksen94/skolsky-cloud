@@ -259,10 +259,10 @@ export default function AdminPage() {
   }
 
   useEffect(() => {
-    const isOverlayOpen = !!(showProfile || confirmModal);
+    const isOverlayOpen = !!(showProfile || confirmModal || copyFileModal);
     document.body.style.overflow = isOverlayOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [showProfile, confirmModal]);
+  }, [showProfile, confirmModal, copyFileModal]);
 
   async function checkAdmin() {
     try {
