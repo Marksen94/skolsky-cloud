@@ -1240,7 +1240,7 @@ export default function Dashboard() {
               </div>
             </div>
             <form onSubmit={saveProfile} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-muted)' }}>Meno</label>
                   <input type="text" className="input-field" value={profile?.first_name || ''} disabled />
@@ -1976,7 +1976,7 @@ export default function Dashboard() {
 
           {/* Priečinky grid */}
           {visibleFolders.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
               {getOrderedFolders(visibleFolders, currentFolderId).map(folder => {
                 const childCount = folders.filter(f => f.parent_id === folder.id).length;
                 const fileCount = allFiles.filter(f => f.folder_id === folder.id).length;
@@ -2303,7 +2303,7 @@ function FolderCard({ folder, childCount, fileCount, isOwner, onOpen, onDelete, 
         }}>
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-1.5">
-            <span className="cursor-grab opacity-0 group-hover:opacity-50 transition-opacity flex-shrink-0"
+            <span className="hidden sm:inline-flex cursor-grab opacity-0 group-hover:opacity-50 transition-opacity flex-shrink-0"
               style={{ color: 'var(--text-dim)' }}>
               <GripVertical size={13} />
             </span>
