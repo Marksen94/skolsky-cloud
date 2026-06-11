@@ -383,11 +383,6 @@ select.input-field {
     min-height: 44px;
   }
 
-  /* Globálny min touch target — všetky button elementy */
-  button {
-    min-height: 44px;
-  }
-
   /* Tabuľky — horizontálny scroll bez orezania */
   .card .overflow-x-auto {
     margin-left: -16px;

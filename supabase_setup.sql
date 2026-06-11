@@ -147,6 +147,21 @@ CREATE POLICY "Admin delete any folder"
     )
   );
 
+-- Žiak môže premenovať vlastný priečinok
+CREATE POLICY "Students update own folders"
+  ON folders FOR UPDATE
+  USING (created_by = auth.uid())
+  WITH CHECK (created_by = auth.uid());
+
+-- Admin môže upraviť akýkoľvek priečinok
+CREATE POLICY "Admin update any folder"
+  ON folders FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true
+    )
+  );
+
 -- 7. POLICIES PRE FILES
 -- ============================================================
 
@@ -186,6 +201,21 @@ CREATE POLICY "Students delete own files"
 -- Admin môže vymazať akýkoľvek súbor
 CREATE POLICY "Admin delete any file"
   ON files FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true
+    )
+  );
+
+-- Žiak môže presunúť vlastný súbor (zmeniť folder_id)
+CREATE POLICY "Students update own files"
+  ON files FOR UPDATE
+  USING (uploaded_by = auth.uid())
+  WITH CHECK (uploaded_by = auth.uid());
+
+-- Admin môže upraviť akýkoľvek súbor
+CREATE POLICY "Admin update any file"
+  ON files FOR UPDATE
   USING (
     EXISTS (
       SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true
@@ -345,6 +375,31 @@ END $;
 
 DO $ BEGIN
   IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'folders' AND policyname = 'Students update own folders'
+  ) THEN
+    CREATE POLICY "Students update own folders"
+      ON folders FOR UPDATE
+      USING (created_by = auth.uid())
+      WITH CHECK (created_by = auth.uid());
+  END IF;
+END $;
+
+DO $ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'folders' AND policyname = 'Admin update any folder'
+  ) THEN
+    CREATE POLICY "Admin update any folder"
+      ON folders FOR UPDATE
+      USING (
+        EXISTS (
+          SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true
+        )
+      );
+  END IF;
+END $;
+
+DO $ BEGIN
+  IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'folders' AND policyname = 'Admin delete any folder'
   ) THEN
     CREATE POLICY "Admin delete any folder"
@@ -464,3 +519,29 @@ CREATE POLICY "Admin upload to any class folder"
       'pdf', 'jpg', 'jpeg', 'png', 'webp', 'ppt', 'pptx', 'doc', 'docx', 'xls', 'xlsx'
     )
   );
+
+-- 3. UPDATE policy pre files (presun súboru do priečinku)
+DO $ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'files' AND policyname = 'Students update own files'
+  ) THEN
+    CREATE POLICY "Students update own files"
+      ON files FOR UPDATE
+      USING (uploaded_by = auth.uid())
+      WITH CHECK (uploaded_by = auth.uid());
+  END IF;
+END $;
+
+DO $ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'files' AND policyname = 'Admin update any file'
+  ) THEN
+    CREATE POLICY "Admin update any file"
+      ON files FOR UPDATE
+      USING (
+        EXISTS (
+          SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true
+        )
+      );
+  END IF;
+END $;

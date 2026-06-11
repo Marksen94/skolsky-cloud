@@ -888,6 +888,8 @@ export default function Dashboard() {
         description: null, folder_id: currentFolder ? currentFolder.id : null,
       }).select(`*, profiles(first_name, last_name)`).single();
       if (dbErr) { await supabase.storage.from('class-files').remove([path]); errors.push(`${file.name}: ${dbErr.message}`); continue; }
+      // Lokálny update bez full-reload — rýchlejšie a bez bliknutia
+      if (inserted) addFileLocally(inserted);
       successCount++;
     }
 
