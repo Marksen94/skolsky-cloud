@@ -10,7 +10,7 @@ import {
   Search, AlertCircle, FolderOpen, X, Eye, EyeOff, CheckCircle, Folder,
   ChevronRight, FolderPlus, KeyRound, UserX, ChevronDown, ZoomIn, Menu,
   Star, BarChart2, ArrowUpDown, Filter, MoveRight, Pencil, Bell,
-  CheckSquare, Megaphone, History, PackageOpen, WifiOff, Command, GripVertical,
+  CheckSquare, Megaphone, History, PackageOpen, WifiOff, GripVertical,
 } from 'lucide-react';
 import ThemeToggle from '@/app/components/ThemeToggle';
 
@@ -46,10 +46,13 @@ function matchesTypeFilter(file, typeFilter) {
 }
 
 function sortFiles(files, sortKey) {
+  if (sortKey === 'date_desc' || sortKey === 'date_asc') {
+    const withTs = files.map(f => ({ f, ts: new Date(f.created_at).getTime() }));
+    withTs.sort((a, b) => sortKey === 'date_desc' ? b.ts - a.ts : a.ts - b.ts);
+    return withTs.map(x => x.f);
+  }
   return [...files].sort((a, b) => {
     switch (sortKey) {
-      case 'date_desc': return new Date(b.created_at) - new Date(a.created_at);
-      case 'date_asc':  return new Date(a.created_at) - new Date(b.created_at);
       case 'name_asc':  return a.original_name.localeCompare(b.original_name, 'sk');
       case 'name_desc': return b.original_name.localeCompare(a.original_name, 'sk');
       case 'size_desc': return (b.file_size || 0) - (a.file_size || 0);
@@ -656,7 +659,7 @@ export default function Dashboard() {
 
   async function loadFiles(className, limit = fileLimit) {
     try {
-      const [filesRes, allFilesRes, foldersRes] = await Promise.all([
+      const [pagedRes, allFilesRes, foldersRes] = await Promise.all([
         supabase.from('files')
           .select(`*, profiles(first_name, last_name)`, { count: 'exact' })
           .eq('class', className).order('created_at', { ascending: false }).range(0, limit - 1),
@@ -666,16 +669,26 @@ export default function Dashboard() {
         supabase.from('folders')
           .select('*').eq('class', className).order('name', { ascending: true }),
       ]);
-      if (filesRes.error) throw filesRes.error;
+      if (pagedRes.error) throw pagedRes.error;
       if (allFilesRes.error) throw allFilesRes.error;
       if (foldersRes.error) throw foldersRes.error;
-      setFiles(filesRes.data || []);
+      setFiles(pagedRes.data || []);
       setAllFiles(allFilesRes.data || []);
-      setHasMoreFiles((filesRes.count || 0) > limit);
+      setHasMoreFiles((pagedRes.count || 0) > limit);
       setFolders(foldersRes.data || []);
     } catch (err) {
       console.error('Error loading files:', err);
     }
+  }
+
+  // Po úspechné upload/mazání aktualizuj lokálne bez full-reload
+  function addFileLocally(newFile) {
+    setAllFiles(prev => [newFile, ...prev]);
+    setFiles(prev => [newFile, ...prev]);
+  }
+  function removeFileLocally(fileId) {
+    setFiles(prev => prev.filter(f => f.id !== fileId));
+    setAllFiles(prev => prev.filter(f => f.id !== fileId));
   }
 
   async function loadMoreFiles() {
