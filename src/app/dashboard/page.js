@@ -873,7 +873,7 @@ export default function Dashboard() {
   // RENDER
   // ══════════════════════════════════════════════════════════
   return (
-    <div style={{ background: 'var(--bg)' }}>
+    <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
 
       {/* ── LIGHTBOX ──────────────────────────────────────── */}
       {lightboxFile && (
@@ -916,7 +916,8 @@ export default function Dashboard() {
             style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}>
             <Download size={15} /> Stiahnuť
           </a>
-          <p className="absolute bottom-5 right-5 text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Esc alebo klikni mimo pre zatvorenie</p>
+          <p className="absolute bottom-5 right-5 text-xs hidden sm:block" style={{ color: 'rgba(255,255,255,0.4)' }}>Esc alebo klikni mimo pre zatvorenie</p>
+          <p className="absolute bottom-5 right-5 text-xs sm:hidden" style={{ color: 'rgba(255,255,255,0.4)' }}>Klikni mimo pre zatvorenie</p>
         </div>
       )}
 
@@ -1440,7 +1441,7 @@ export default function Dashboard() {
         )}
 
         {/* Stat cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up">
           <StatCard icon={<BookOpen size={20} style={{ color: '#3b82f6' }} />} title="Súbory" value={allFiles.length} subtitle="celkom nahraných" color="blue" />
           <StatCard icon={<Folder size={20} style={{ color: '#f59e0b' }} />} title="Priečinky" value={folders.filter(f => !f.parent_id).length} subtitle="hlavných priečinkov" color="amber" />
           <StatCard icon={<CloudUpload size={20} style={{ color: '#10b981' }} />} title="Posledný upload" value={allFiles.length > 0 ? new Date(allFiles[0].created_at).toLocaleDateString('sk-SK', { day: '2-digit', month: 'short' }) : '--'} subtitle="dátum posledného" color="green" />
@@ -1546,13 +1547,13 @@ export default function Dashboard() {
         <div className="card shadow-card animate-slide-up">
 
           {/* Header riadok */}
-          <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 mb-4">
             <div className="flex items-center gap-2 flex-wrap">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--surface-2)' }}>
                 <FolderOpen size={16} style={{ color: 'var(--accent-link)' }} />
               </div>
-              <h3 className="font-bold" style={{ color: 'var(--text)' }}>
-                {showFavorites ? '⭐ Obľúbené' : globalSearch ? `Výsledky hľadania "${search}"` : 'Priečinky a súbory triedy'}
+              <h3 className="font-bold truncate max-w-[200px] sm:max-w-xs" style={{ color: 'var(--text)' }}>
+                {showFavorites ? '⭐ Obľúbené' : globalSearch ? `Výsledky: "${search}"` : 'Priečinky a súbory triedy'}
               </h3>
               {/* Obľúbené toggle */}
               <button onClick={toggleFavoritesView}
@@ -1590,7 +1591,7 @@ export default function Dashboard() {
                   {SORT_OPTIONS.find(o => o.value === sortKey)?.label}
                 </button>
                 {showSortMenu && (
-                  <div className="absolute right-0 top-full mt-1 z-30 rounded-2xl shadow-2xl py-1 min-w-[150px] animate-fade-in"
+                  <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1 z-30 rounded-2xl shadow-2xl py-1 min-w-[150px] animate-fade-in"
                     style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                     {SORT_OPTIONS.map(opt => (
                       <button key={opt.value} onClick={() => { setSortKey(opt.value); setShowSortMenu(false); }}
@@ -1615,7 +1616,7 @@ export default function Dashboard() {
                   {TYPE_FILTERS.find(o => o.value === typeFilter)?.label}
                 </button>
                 {showTypeMenu && (
-                  <div className="absolute right-0 top-full mt-1 z-30 rounded-2xl shadow-2xl py-1 min-w-[150px] animate-fade-in"
+                  <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1 z-30 rounded-2xl shadow-2xl py-1 min-w-[150px] animate-fade-in"
                     style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                     {TYPE_FILTERS.map(opt => (
                       <button key={opt.value} onClick={() => { setTypeFilter(opt.value); setShowTypeMenu(false); }}
@@ -1630,9 +1631,9 @@ export default function Dashboard() {
                 )}
               </div>
               {/* Hľadaj */}
-              <div className="input-with-icon" style={{ minWidth: 0 }}>
+              <div className="input-with-icon flex-1" style={{ minWidth: '120px', maxWidth: '220px' }}>
                 <Search size={15} className="input-icon" />
-                <input className="input-inner text-sm" style={{ width: '140px' }}
+                <input className="input-inner text-sm" style={{ minWidth: 0 }}
                   placeholder="Hľadaj..." value={searchInput} onChange={e => handleSearchInput(e.target.value)} />
                 {searchInput && (
                   <button onClick={() => { setSearchInput(''); setSearch(''); }} style={{ color: 'var(--text-muted)' }}><X size={13} /></button>
@@ -1797,18 +1798,18 @@ function DashboardSkeleton() {
       <div className="school-header">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl skeleton" />
+            <div className="w-10 h-10 rounded-xl" style={{ background: 'rgba(255,255,255,0.15)' }} />
             <div className="space-y-1.5">
-              <div className="h-3.5 w-44 rounded-lg skeleton" />
-              <div className="h-2.5 w-20 rounded-lg skeleton" style={{ opacity: 0.6 }} />
+              <div className="h-3.5 w-44 rounded-lg" style={{ background: 'rgba(255,255,255,0.18)' }} />
+              <div className="h-2.5 w-20 rounded-lg" style={{ background: 'rgba(255,255,255,0.1)' }} />
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl skeleton" />
+            <div className="w-9 h-9 rounded-xl" style={{ background: 'rgba(255,255,255,0.12)' }} />
             <div className="hidden sm:flex items-center gap-3">
-              <div className="h-8 w-32 rounded-xl skeleton" />
-              <div className="w-9 h-9 rounded-xl skeleton" />
-              <div className="h-5 w-20 rounded-lg skeleton" />
+              <div className="h-8 w-32 rounded-xl" style={{ background: 'rgba(255,255,255,0.12)' }} />
+              <div className="w-9 h-9 rounded-xl" style={{ background: 'rgba(255,255,255,0.12)' }} />
+              <div className="h-5 w-20 rounded-lg" style={{ background: 'rgba(255,255,255,0.1)' }} />
             </div>
           </div>
         </div>
