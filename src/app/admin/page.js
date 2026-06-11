@@ -963,6 +963,29 @@ export default function AdminPage() {
                 <Download size={15} style={{ color: isAugust31 ? 'white' : 'var(--accent-link)' }} />
                 {exporting ? 'Exportujem...' : isAugust31 ? '⚠️ Stiahnuť všetko ako ZIP (dnes sa maže!)' : 'Stiahnuť všetky súbory ako ZIP'}
               </button>
+
+              {/* Export CSV žiakov */}
+              <button
+                onClick={() => {
+                  const rows = [['Meno', 'Priezvisko', 'Email', 'Trieda', 'Stav']];
+                  approved.filter(u => !u.deletion_requested).forEach(u => {
+                    rows.push([u.first_name, u.last_name, u.email, u.class, u.status === 'approved' ? 'Schválený' : 'Zamietnutý']);
+                  });
+                  const csv = rows.map(r => r.map(v => `"${(v||'').replace(/"/g, '""')}"`).join(',')).join('\n');
+                  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url; a.download = `ziaci-${new Date().toISOString().split('T')[0]}.csv`;
+                  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-semibold text-sm transition-all duration-200 shadow-sm"
+                style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+              >
+                <FileText size={15} style={{ color: '#10b981' }} />
+                Export žiakov CSV
+              </button>
+
               {exportError && (
                 <span className="text-sm flex items-center gap-1.5" style={{ color: '#ef4444' }}>
                   <AlertCircle size={14} /> {exportError}
