@@ -138,18 +138,12 @@ export default function Dashboard() {
   const [moveError, setMoveError] = useState('');
 
   // ─── Obľúbené ───
-  const [favorites, setFavorites] = useState(() => {
-    if (typeof window === 'undefined') return [];
-    try { return JSON.parse(localStorage.getItem('sc_favorites') || '[]'); } catch { return []; }
-  });
+  const [favorites, setFavorites] = useState([]);
   const [showFavorites, setShowFavorites] = useState(false);
 
   // ─── Notifikácie ───
   const [notifCount, setNotifCount] = useState(0);
-  const [lastSeenAt, setLastSeenAt] = useState(() => {
-    if (typeof window === 'undefined') return null;
-    try { return localStorage.getItem('sc_last_seen') || null; } catch { return null; }
-  });
+  const [lastSeenAt, setLastSeenAt] = useState(null);
 
   // ─── Zoraďovanie a filtrovanie ───
   const [sortKey, setSortKey] = useState('date_desc');
@@ -168,10 +162,7 @@ export default function Dashboard() {
   const [lightboxFile, setLightboxFile] = useState(null);
 
   // ─── Naposledy zobrazené ───
-  const [recentFiles, setRecentFiles] = useState(() => {
-    if (typeof window === 'undefined') return [];
-    try { return JSON.parse(localStorage.getItem('sc_recent') || '[]'); } catch { return []; }
-  });
+  const [recentFiles, setRecentFiles] = useState([]);
 
   // ─── Oznamovacia tabuľa ───
   const [announcement, setAnnouncement] = useState(null);
@@ -207,10 +198,7 @@ export default function Dashboard() {
   const [folderZipping, setFolderZipping] = useState(null); // folder.id
 
   // ─── Poradie priečinkov (drag & drop reorder) ───
-  const [folderOrderMap, setFolderOrderMap] = useState(() => {
-    if (typeof window === 'undefined') return {};
-    try { return JSON.parse(localStorage.getItem('sc_folder_order') || '{}'); } catch { return {}; }
-  });
+  const [folderOrderMap, setFolderOrderMap] = useState({});
   const [draggingFolderId, setDraggingFolderId] = useState(null);
   const [folderReorderOver, setFolderReorderOver] = useState(null);
 
@@ -276,7 +264,7 @@ export default function Dashboard() {
     const key = getFolderOrderKey(parentId);
     const newMap = { ...folderOrderMap, [key]: orderedIds };
     setFolderOrderMap(newMap);
-    try { localStorage.setItem('sc_folder_order', JSON.stringify(newMap)); } catch {}
+    try { if (profile?.id) localStorage.setItem(`sc_folder_order_${profile.id}`, JSON.stringify(newMap)); } catch {}
   }
 
   function onFolderDragStart(folderId, e) {
@@ -399,7 +387,7 @@ export default function Dashboard() {
     const now = new Date().toISOString();
     setLastSeenAt(now);
     setNotifCount(0);
-    try { localStorage.setItem('sc_last_seen', now); } catch {}
+    try { if (profile?.id) localStorage.setItem(`sc_last_seen_${profile.id}`, now); } catch {}
   }
 
   // ══════════════════════════════════════════════════════════
@@ -410,7 +398,7 @@ export default function Dashboard() {
       const next = prev.includes(fileId)
         ? prev.filter(id => id !== fileId)
         : [...prev, fileId];
-      try { localStorage.setItem('sc_favorites', JSON.stringify(next)); } catch {}
+      try { if (profile?.id) localStorage.setItem(`sc_favorites_${profile.id}`, JSON.stringify(next)); } catch {}
       return next;
     });
   }
@@ -570,6 +558,17 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => { loadUser(); }, []);
+
+  // Per-uzivatelske localStorage data (oblubene, naposledy zobrazene,
+  // notifikacie, poradie priecinkov) — namespace podla profile.id,
+  // aby sa nezdielali medzi ziakmi na jednom (skolskom) PC.
+  useEffect(() => {
+    if (!profile?.id) return;
+    try { setFavorites(JSON.parse(localStorage.getItem(`sc_favorites_${profile.id}`) || '[]')); } catch {}
+    try { setLastSeenAt(localStorage.getItem(`sc_last_seen_${profile.id}`) || null); } catch {}
+    try { setRecentFiles(JSON.parse(localStorage.getItem(`sc_recent_${profile.id}`) || '[]')); } catch {}
+    try { setFolderOrderMap(JSON.parse(localStorage.getItem(`sc_folder_order_${profile.id}`) || '{}')); } catch {}
+  }, [profile?.id]);
 
   // Online/offline detekčcia
   useEffect(() => {
@@ -970,7 +969,7 @@ export default function Dashboard() {
       setRecentFiles(prev => {
         const filtered = prev.filter(f => f.id !== file.id);
         const next = [{ id: file.id, original_name: file.original_name, file_type: file.file_type, seenAt: new Date().toISOString() }, ...filtered].slice(0, 8);
-        try { localStorage.setItem('sc_recent', JSON.stringify(next)); } catch {}
+        try { if (profile?.id) localStorage.setItem(`sc_recent_${profile.id}`, JSON.stringify(next)); } catch {}
         return next;
       });
     } catch (err) {
@@ -1651,7 +1650,7 @@ export default function Dashboard() {
               <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Naposledy zobrazené</p>
               <button onClick={() => {
                 setRecentFiles([]);
-                try { localStorage.removeItem('sc_recent'); } catch {}
+                try { if (profile?.id) localStorage.removeItem(`sc_recent_${profile.id}`); } catch {}
               }} className="ml-auto text-xs" style={{ color: 'var(--text-dim)' }}>Vymazať</button>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>

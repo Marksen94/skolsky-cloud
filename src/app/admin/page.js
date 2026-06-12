@@ -1093,7 +1093,7 @@ export default function AdminPage() {
                     {adminFolderError && <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(200,32,10,0.1)', color: '#ef4444', border: '1px solid rgba(200,32,10,0.25)' }}><AlertCircle size={13} /> {adminFolderError}</div>}
                     <div className="flex-1 overflow-y-auto" style={{ maxHeight: '260px' }}>
                       {adminVisibleFolders.length > 0 ? (
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {adminVisibleFolders.map(folder => {
                             const childCount = uploadClassFolders.filter(f => f.parent_id === folder.id).length;
                             const isSelected = uploadFolderId === folder.id;
