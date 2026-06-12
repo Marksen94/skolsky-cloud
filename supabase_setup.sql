@@ -305,7 +305,7 @@ ALTER TABLE files ADD COLUMN IF NOT EXISTS folder_id UUID REFERENCES folders(id)
 ALTER TABLE folders ENABLE ROW LEVEL SECURITY;
 
 -- 4. Pridaj policies pre folders (ak ešte neexistujú)
-DO $ BEGIN
+DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'folders' AND policyname = 'Students view class folders'
   ) THEN
@@ -317,9 +317,9 @@ DO $ BEGIN
         )
       );
   END IF;
-END $;
+END $$;
 
-DO $ BEGIN
+DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'folders' AND policyname = 'Admin view all folders'
   ) THEN
@@ -331,9 +331,9 @@ DO $ BEGIN
         )
       );
   END IF;
-END $;
+END $$;
 
-DO $ BEGIN
+DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'folders' AND policyname = 'Approved students can create folders'
   ) THEN
@@ -346,9 +346,9 @@ DO $ BEGIN
         AND created_by = auth.uid()
       );
   END IF;
-END $;
+END $$;
 
-DO $ BEGIN
+DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'folders' AND policyname = 'Admins can create folders'
   ) THEN
@@ -361,9 +361,9 @@ DO $ BEGIN
         AND created_by = auth.uid()
       );
   END IF;
-END $;
+END $$;
 
-DO $ BEGIN
+DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'folders' AND policyname = 'Students delete own folders'
   ) THEN
@@ -371,9 +371,9 @@ DO $ BEGIN
       ON folders FOR DELETE
       USING (created_by = auth.uid());
   END IF;
-END $;
+END $$;
 
-DO $ BEGIN
+DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'folders' AND policyname = 'Students update own folders'
   ) THEN
@@ -382,9 +382,9 @@ DO $ BEGIN
       USING (created_by = auth.uid())
       WITH CHECK (created_by = auth.uid());
   END IF;
-END $;
+END $$;
 
-DO $ BEGIN
+DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'folders' AND policyname = 'Admin update any folder'
   ) THEN
@@ -396,9 +396,9 @@ DO $ BEGIN
         )
       );
   END IF;
-END $;
+END $$;
 
-DO $ BEGIN
+DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'folders' AND policyname = 'Admin delete any folder'
   ) THEN
@@ -410,7 +410,7 @@ DO $ BEGIN
         )
       );
   END IF;
-END $;
+END $$;
 
 -- ============================================================
 -- MIGRÁCIA — Rate limiting + XSS ochrana na úrovni DB
@@ -521,7 +521,7 @@ CREATE POLICY "Admin upload to any class folder"
   );
 
 -- 3. UPDATE policy pre files (presun súboru do priečinku)
-DO $ BEGIN
+DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'files' AND policyname = 'Students update own files'
   ) THEN
@@ -530,9 +530,9 @@ DO $ BEGIN
       USING (uploaded_by = auth.uid())
       WITH CHECK (uploaded_by = auth.uid());
   END IF;
-END $;
+END $$;
 
-DO $ BEGIN
+DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'files' AND policyname = 'Admin update any file'
   ) THEN
@@ -544,4 +544,4 @@ DO $ BEGIN
         )
       );
   END IF;
-END $;
+END $$;
