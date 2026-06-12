@@ -245,7 +245,14 @@ export default function AdminPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user?.email) { setProfileError('Relácia vypršala. Prihlás sa znova.'); return; }
-      const { error: signInErr } = await supabase.auth.signInWithPassword({ email: session.user.email, password: currentPw });
+      // Pomocný jednorazový klient — overenie starého hesla bez prepisu aktualnej session
+      const { createClient } = await import('@supabase/supabase-js');
+      const tempClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        { auth: { persistSession: false } }
+      );
+      const { error: signInErr } = await tempClient.auth.signInWithPassword({ email: session.user.email, password: currentPw });
       if (signInErr) { setProfileError('Aktuálne heslo je nesprávne.'); return; }
       const { error: pwErr } = await supabase.auth.updateUser({ password: newPw });
       if (pwErr) { setProfileError('Heslo sa nepodarilo zmeniť: ' + pwErr.message); return; }

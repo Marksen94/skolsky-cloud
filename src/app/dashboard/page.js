@@ -700,6 +700,7 @@ export default function Dashboard() {
         .eq('class', profile.class).order('created_at', { ascending: false }).range(0, newLimit - 1);
       if (error) throw error;
       setFiles(filesData || []);
+      setAllFiles(filesData || []);
       setHasMoreFiles((count || 0) > newLimit);
       setFileLimit(newLimit);
     } catch (err) {
@@ -804,8 +805,16 @@ export default function Dashboard() {
       const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
       if (sessionErr) throw sessionErr;
       if (!session?.user?.email) { setProfileError('Relácia vypršala. Prihláste sa znova.'); setProfileSaving(false); return; }
-      const { error: signInErr } = await supabase.auth.signInWithPassword({ email: session.user.email, password: currentPw });
-      if (signInErr) { setProfileError('Aktuálne heslo je nesprávne.'); setProfileSaving(false); return; }
+      // Overenie starého hesla bez nahradzania session: re-signIn môže prepísať tokeny
+      // a spustiť nekonžistený stav. Používame pomocný jednorazový klient.
+      const { createClient } = await import('@supabase/supabase-js');
+      const tempClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        { auth: { persistSession: false } }
+      );
+      const { error: verifyErr } = await tempClient.auth.signInWithPassword({ email: session.user.email, password: currentPw });
+      if (verifyErr) { setProfileError('Aktuálne heslo je nesprávne.'); setProfileSaving(false); return; }
       const { error: pwErr } = await supabase.auth.updateUser({ password: editPw });
       if (pwErr) { setProfileError('Heslo sa nepodarilo zmeniť: ' + pwErr.message); setProfileSaving(false); return; }
       setCurrentPw(''); setEditPw(''); setEditPwConfirm('');

@@ -301,6 +301,9 @@ CREATE TABLE IF NOT EXISTS folders (
 -- 2. Pridaj folder_id do existujúcej tabuľky files (ak ešte neexistuje)
 ALTER TABLE files ADD COLUMN IF NOT EXISTS folder_id UUID REFERENCES folders(id) ON DELETE SET NULL;
 
+-- 2b. Pridaj deletion_requested flag do profiles (ak ešte neexistuje)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS deletion_requested BOOLEAN DEFAULT false;
+
 -- 3. Zapni RLS pre folders
 ALTER TABLE folders ENABLE ROW LEVEL SECURITY;
 
