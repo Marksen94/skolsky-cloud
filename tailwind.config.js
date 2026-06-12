@@ -9,6 +9,8 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        'school-navy': '#0D1F3C',
+        'school-blue': '#1A3A6B',
         school: {
           navy: '#0D1F3C',
           blue: '#1A3A6B',

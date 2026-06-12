@@ -1846,7 +1846,7 @@ export default function Dashboard() {
                   {SORT_OPTIONS.find(o => o.value === sortKey)?.label}
                 </button>
                 {showSortMenu && (
-                  <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1 z-30 rounded-2xl shadow-2xl py-1 min-w-[150px] animate-fade-in"
+                  <div className="absolute right-0 top-full mt-1 z-30 rounded-2xl shadow-2xl py-1 min-w-[150px] animate-fade-in"
                     style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                     {SORT_OPTIONS.map(opt => (
                       <button key={opt.value} onClick={() => { setSortKey(opt.value); setShowSortMenu(false); }}
@@ -1871,7 +1871,7 @@ export default function Dashboard() {
                   {TYPE_FILTERS.find(o => o.value === typeFilter)?.label}
                 </button>
                 {showTypeMenu && (
-                  <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1 z-30 rounded-2xl shadow-2xl py-1 min-w-[150px] animate-fade-in"
+                  <div className="absolute right-0 top-full mt-1 z-30 rounded-2xl shadow-2xl py-1 min-w-[150px] animate-fade-in"
                     style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                     {TYPE_FILTERS.map(opt => (
                       <button key={opt.value} onClick={() => { setTypeFilter(opt.value); setShowTypeMenu(false); }}

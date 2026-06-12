@@ -11,12 +11,12 @@ export default function SummerNotification() {
     const month = now.getMonth();
     const day = now.getDate();
 
-    const isInSummer =
-      month === 5 ||   // jún
-      month === 6 ||   // júl
-      month === 7;     // august (celý mesiac)
+    // Zobraziť len posledných 14 dní pred 1. septembrom (18–31. august) + celý jún pre test
+    const isLastTwoWeeks =
+      (month === 7 && day >= 18) || // august posledných 14 dní
+      (month === 7 && day === 31);  // 31. august — osobitná správa
 
-    if (!isInSummer) return;
+    if (!isLastTwoWeeks) return;
 
     const sessionKey = 'summer_notice_dismissed';
     try {
