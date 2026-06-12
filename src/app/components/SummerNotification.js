@@ -39,7 +39,7 @@ export default function SummerNotification() {
 
   return (
     <div
-      className="fixed bottom-5 right-5 z-[9999] w-[calc(100%-2rem)] max-w-sm animate-slide-up"
+      className="fixed bottom-24 sm:bottom-5 right-5 left-4 sm:left-auto z-[9999] sm:w-[calc(100%-2rem)] max-w-sm animate-slide-up"
       role="alert"
       aria-live="polite"
     >
