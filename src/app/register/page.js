@@ -66,7 +66,7 @@ export default function RegisterPage() {
             <p style={{ color: 'var(--text-muted)' }}>3. Po schválení sa môžeš prihlásiť</p>
           </div>
           <div className="rounded-xl p-3 text-xs mb-6" style={{ background: 'rgba(26,58,107,0.1)', border: '1px solid rgba(26,58,107,0.25)', color: 'var(--accent-link)' }}>
-            <p>📧 <strong>{process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'rumont.sro@gmail.com'}</strong></p>
+            <p>📧 <strong>{process.env.NEXT_PUBLIC_ADMIN_EMAIL}</strong></p>
             <p>📱 Instagram: <strong>@rumont_sro</strong></p>
           </div>
           <Link href="/" className="btn-primary block text-center">Späť na prihlásenie</Link>

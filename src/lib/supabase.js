@@ -1,7 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || supabaseUrl === 'https://placeholder.supabase.co') {
+  console.warn('[supabase.js] NEXT_PUBLIC_SUPABASE_URL nie je nastavená — skopíruj .env.local.example do .env.local');
+}
+if (!supabaseAnonKey) {
+  console.warn('[supabase.js] NEXT_PUBLIC_SUPABASE_ANON_KEY nie je nastavená — skopíruj .env.local.example do .env.local');
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
