@@ -599,6 +599,12 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 }
 .animate-pop { animation: pop 0.35s var(--ease-spring); }
 
+/* ─── Okrúhle ikonové tlačidlá (napr. toggle prepínače) — focus rámik kopíruje tvar ─── */
+.toggle-btn:focus-visible {
+  outline-offset: 2px;
+  border-radius: 999px;
+}
+
 /* ─── "Rise" — len transform, bez opacity (pre prvky, ktoré si opacity rúdia samy, napr. drag stav) ─── */
 @keyframes rise {
   from { transform: translateY(10px); }

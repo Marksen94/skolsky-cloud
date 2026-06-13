@@ -1245,7 +1245,7 @@ export default function AdminPage() {
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
                   <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <button type="button" onClick={() => setNewAnnounce(p => ({ ...p, active: !p.active }))} className="transition-transform hover:scale-110">
+                    <button type="button" onClick={() => setNewAnnounce(p => ({ ...p, active: !p.active }))} className="toggle-btn transition-transform hover:scale-110">
                       {newAnnounce.active
                         ? <ToggleRight key="on" size={24} style={{ color: '#10b981' }} className="animate-pop" />
                         : <ToggleLeft key="off" size={24} style={{ color: 'var(--text-muted)' }} className="animate-pop" />}
@@ -1289,7 +1289,7 @@ export default function AdminPage() {
                           <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>{new Date(a.created_at).toLocaleDateString('sk-SK')}</p>
                         </div>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <button onClick={() => toggleAnnouncement(a.id, !a.active)} title={a.active ? 'Skryť' : 'Zobraziť'} className="transition-transform hover:scale-110">
+                          <button onClick={() => toggleAnnouncement(a.id, !a.active)} title={a.active ? 'Skryť' : 'Zobraziť'} className="toggle-btn transition-transform hover:scale-110">
                             {a.active
                               ? <ToggleRight key="on" size={20} style={{ color: '#10b981' }} className="animate-pop" />
                               : <ToggleLeft key="off" size={20} style={{ color: 'var(--text-muted)' }} className="animate-pop" />}
