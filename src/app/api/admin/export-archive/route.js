@@ -62,13 +62,28 @@ export async function GET(request) {
   const modDate = dosDate(now);
   const modTime = dosTime(now);
 
+  // ZIP bez ZIP64 podporuje len offsety/veľkosti do 4 GB (Uint32). Po prekročení
+  // limitu ďalšie súbory vynecháme, aby archív nebol skorumpovaný.
+  const ZIP32_LIMIT = 0xFFFFFFFF;
+  let zipLimitReached = false;
+  let skippedDueToLimit = 0;
+
   for (const file of files) {
+    if (zipLimitReached) { skippedDueToLimit++; continue; }
     try {
       const { data: blob, error: dlErr } = await supabaseAdmin.storage.from('class-files').download(file.file_name);
       if (dlErr || !blob) continue;
 
       const arrayBuffer = await blob.arrayBuffer();
       const fileData = new Uint8Array(arrayBuffer);
+
+      // Ak by tento súbor posunul offset za 4 GB hranicu, archív (bez ZIP64)
+      // by sa poškodil — preskočíme zostávajúce súbory.
+      if (offset + 30 + fileData.length > ZIP32_LIMIT) {
+        zipLimitReached = true;
+        skippedDueToLimit++;
+        continue;
+      }
 
       const dir = (file.class || 'neznama-trieda').replace(/[\/\\:*?"<>|]/g, '_');
       const safeName = (file.original_name || 'subor').replace(/[\/\\:*?"<>|]/g, '_');
@@ -148,12 +163,20 @@ export async function GET(request) {
 
   const date = new Date().toISOString().split('T')[0];
 
+  const headers = {
+    'Content-Type': 'application/zip',
+    'Content-Disposition': `attachment; filename="school-cloud-export-${date}.zip"`,
+    'Content-Length': zipBuffer.length.toString(),
+  };
+  if (skippedDueToLimit > 0) {
+    // Upozornenie pre klienta, že archív presiahol 4 GB limit (ZIP bez ZIP64)
+    // a niektoré súbory neboli zahrnuté.
+    headers['X-Export-Skipped-Files'] = String(skippedDueToLimit);
+    headers['X-Export-Warning'] = 'size-limit-4gb-exceeded';
+  }
+
   return new NextResponse(zipBuffer, {
     status: 200,
-    headers: {
-      'Content-Type': 'application/zip',
-      'Content-Disposition': `attachment; filename="school-cloud-export-${date}.zip"`,
-      'Content-Length': zipBuffer.length.toString(),
-    },
+    headers,
   });
 }

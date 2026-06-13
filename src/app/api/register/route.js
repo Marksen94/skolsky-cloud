@@ -12,6 +12,9 @@ export async function POST(request) {
     if (password.length < 6) {
       return NextResponse.json({ error: 'Heslo musí mať aspoň 6 znakov.' }, { status: 400 });
     }
+    if (password.length > 72) {
+      return NextResponse.json({ error: 'Heslo môže mať maximálne 72 znakov.' }, { status: 400 });
+    }
 
     const VALID_CLASSES = [
       '1.A', '1.C', '1.T', '1.G', '1.H', '1.V',

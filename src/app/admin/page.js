@@ -551,7 +551,7 @@ export default function AdminPage() {
         const { data: inserted, error: dbErr } = await supabase.from('files').insert({
           uploaded_by: adminProfile.id, class: uploadClass, file_name: path,
           original_name: safeOrigName, file_url: path, file_type: file.type,
-          file_size: file.size, description: uploadDesc.trim() || null,
+          file_size: file.size, description: uploadDesc.trim().slice(0, 300) || null,
           folder_id: uploadFolderId || null,
         }).select('*').single();
         if (dbErr) {
@@ -1023,7 +1023,7 @@ export default function AdminPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text)' }}>Popis (voliteľné)</label>
-                  <input type="text" className="input-field py-2 text-sm" placeholder="napr. Fyzika – tabuľky..."
+                  <input type="text" className="input-field py-2 text-sm" placeholder="napr. Fyzika – tabuľky..." maxLength={300}
                     value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} disabled={uploading} />
                 </div>
               </div>

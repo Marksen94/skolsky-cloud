@@ -267,6 +267,23 @@ export default function Dashboard() {
     try { if (profile?.id) localStorage.setItem(`sc_folder_order_${profile.id}`, JSON.stringify(newMap)); } catch {}
   }
 
+  // Vyčistí záznamy pre priečinky, ktoré už neexistujú (napr. boli zmazané) —
+  // bez tohto by sc_folder_order_* v localStorage rástol neobmedzene.
+  function pruneFolderOrderMap(map, folderList) {
+    const existingIds = new Set(folderList.map(f => f.id));
+    let changed = false;
+    const pruned = {};
+    for (const [key, ids] of Object.entries(map)) {
+      // Klúč 'f_<id>' patrí priečinku — ak ten priečinok už neexistuje, celý záznam zahodíme
+      if (key !== 'root' && !existingIds.has(key.slice(2))) { changed = true; continue; }
+      const filteredIds = Array.isArray(ids) ? ids.filter(id => existingIds.has(id)) : [];
+      if (!Array.isArray(ids) || filteredIds.length !== ids.length) changed = true;
+      if (filteredIds.length > 0) pruned[key] = filteredIds;
+      else changed = true;
+    }
+    return { pruned, changed };
+  }
+
   function onFolderDragStart(folderId, e) {
     e.dataTransfer.setData('dragType', 'folder');
     e.dataTransfer.effectAllowed = 'move';
@@ -303,6 +320,18 @@ export default function Dashboard() {
     saveFolderOrder(parentId, reordered.map(f => f.id));
     setFolderReorderOver(null); setDraggingFolderId(null);
   }
+
+  // Po načítaní/zmene priečinkov vyčistí staré záznamy poradia v localStorage
+  // (zmazané priečinky), aby sc_folder_order_* nerástol neobmedzene.
+  useEffect(() => {
+    if (!profile?.id) return;
+    if (Object.keys(folderOrderMap).length === 0) return;
+    const { pruned, changed } = pruneFolderOrderMap(folderOrderMap, folders);
+    if (changed) {
+      setFolderOrderMap(pruned);
+      try { localStorage.setItem(`sc_folder_order_${profile.id}`, JSON.stringify(pruned)); } catch {}
+    }
+  }, [folders, profile?.id, folderOrderMap]);
 
   // ══════════════════════════════════════════════════════════
   // ZIP SŤAHOVANIE PRIEČINKA
@@ -464,16 +493,21 @@ export default function Dashboard() {
       title: `Vymazať ${toDelete.length} súbor${toDelete.length > 1 ? 'ov' : ''}?`,
       message: `${toDelete.length} súbor${toDelete.length > 1 ? 'ov' : ''} bude natrvalo vymazaných.${notOwned > 0 ? ` (${notOwned} cudzie súbory preskočené)` : ''}`,
       onConfirm: async () => {
+        const failed = [];
+        const deleted = [];
         for (const file of toDelete) {
           try {
             await supabase.storage.from('class-files').remove([file.file_name]);
-            await supabase.from('files').delete().eq('id', file.id);
-          } catch {}
+            const { error: dbErr } = await supabase.from('files').delete().eq('id', file.id);
+            if (dbErr) throw dbErr;
+            deleted.push(file.id);
+          } catch { failed.push(file.original_name); }
         }
-        const ids = new Set(toDelete.map(f => f.id));
+        const ids = new Set(deleted);
         setFiles(prev => prev.filter(f => !ids.has(f.id)));
         setAllFiles(prev => prev.filter(f => !ids.has(f.id)));
         clearBulkSelection();
+        if (failed.length > 0) askConfirm({ title: 'Chyba', message: `${failed.length} súbor${failed.length > 1 ? 'y' : ''} sa nepodarilo vymazať.`, danger: false, onConfirm: () => {} });
       },
     });
   }
@@ -509,7 +543,7 @@ export default function Dashboard() {
     setRenameFolderSaving(true); setRenameFolderError('');
     try {
       const { error } = await supabase.from('folders')
-        .update({ name: renameFolderName.trim() })
+        .update({ name: renameFolderName.trim().slice(0, 60) })
         .eq('id', renamingFolder.id);
       if (error) throw error;
       setFolders(prev => prev.map(f => f.id === renamingFolder.id ? { ...f, name: renameFolderName.trim() } : f));
@@ -733,7 +767,7 @@ export default function Dashboard() {
     setFolderSaving(true); setFolderError('');
     try {
       const { error } = await supabase.from('folders').insert({
-        name: newFolderName.trim(), class: profile.class,
+        name: newFolderName.trim().slice(0, 60), class: profile.class,
         parent_id: currentFolder ? currentFolder.id : null, created_by: profile.id,
       });
       if (error) throw error;
@@ -759,9 +793,11 @@ export default function Dashboard() {
         try {
           const { data: allFoldersData, error: foldersErr } = await supabase.from('folders').select('id, parent_id').eq('class', profile.class);
           if (foldersErr) throw foldersErr;
-          const getDescendantIds = (folderId, list) => {
+          const getDescendantIds = (folderId, list, visited = new Set()) => {
+            if (visited.has(folderId)) return [];
+            visited.add(folderId);
             let ids = [folderId];
-            for (const f of list.filter(f => f.parent_id === folderId)) ids = [...ids, ...getDescendantIds(f.id, list)];
+            for (const f of list.filter(f => f.parent_id === folderId)) ids = [...ids, ...getDescendantIds(f.id, list, visited)];
             return ids;
           };
           const folderIdsToDelete = getDescendantIds(folder.id, allFoldersData || []);
