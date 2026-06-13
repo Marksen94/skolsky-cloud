@@ -1586,7 +1586,7 @@ export default function Dashboard() {
               title="Nové súbory od spolužiakov">
               <Bell size={16} />
               {notifCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
+                <span key={notifCount} className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white animate-pop"
                   style={{ background: '#ef4444' }}>
                   {notifCount > 9 ? '9+' : notifCount}
                 </span>
@@ -1599,7 +1599,7 @@ export default function Dashboard() {
                 style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)' }}>
                 <User size={13} className="text-blue-200" />
                 <span className="text-white text-sm font-medium">{profile?.first_name} {profile?.last_name}</span>
-                <ChevronDown size={12} className="text-blue-300" />
+                <ChevronDown size={12} className={`text-blue-300 transition-transform duration-300 ${showUserMenu ? 'rotate-180' : ''}`} />
               </button>
               {showUserMenu && (
                 <div ref={userMenuRef} className="absolute right-0 top-full mt-2 z-50 rounded-2xl shadow-2xl py-1.5 min-w-[200px] animate-fade-in"
@@ -1698,7 +1698,7 @@ export default function Dashboard() {
               <button onClick={() => {
                 setRecentFiles([]);
                 try { if (profile?.id) localStorage.removeItem(`sc_recent_${profile.id}`); } catch {}
-              }} className="ml-auto text-xs" style={{ color: 'var(--text-dim)' }}>Vymazať</button>
+              }} className="ml-auto text-xs link-underline" style={{ color: 'var(--text-dim)' }}>Vymazať</button>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
               {recentFiles.map(rf => {
@@ -1742,11 +1742,11 @@ export default function Dashboard() {
         )}
 
         {/* Stat cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up">
-          <StatCard icon={<BookOpen size={20} style={{ color: '#3b82f6' }} />} title="Súbory" value={allFiles.length} subtitle="celkom nahraných" color="blue" />
-          <StatCard icon={<Folder size={20} style={{ color: '#f59e0b' }} />} title="Priečinky" value={folders.filter(f => !f.parent_id).length} subtitle="hlavných priečinkov" color="amber" />
-          <StatCard icon={<CloudUpload size={20} style={{ color: '#10b981' }} />} title="Posledný upload" value={allFiles.length > 0 ? new Date(allFiles[0].created_at).toLocaleDateString('sk-SK', { day: '2-digit', month: 'short' }) : '--'} subtitle="dátum posledného" color="green" />
-          <StatCard icon={<Clock size={20} style={{ color: '#a855f7' }} />} title="Veľkosť" value={allFiles.length > 0 ? formatFileSize(allFiles.reduce((sum, f) => sum + (f.file_size || 0), 0)) : '0 B'} subtitle="všetky súbory spolu" color="purple" />
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard icon={<BookOpen size={20} style={{ color: '#3b82f6' }} />} title="Súbory" value={allFiles.length} subtitle="celkom nahraných" color="blue" delayClass="delay-1" />
+          <StatCard icon={<Folder size={20} style={{ color: '#f59e0b' }} />} title="Priečinky" value={folders.filter(f => !f.parent_id).length} subtitle="hlavných priečinkov" color="amber" delayClass="delay-2" />
+          <StatCard icon={<CloudUpload size={20} style={{ color: '#10b981' }} />} title="Posledný upload" value={allFiles.length > 0 ? new Date(allFiles[0].created_at).toLocaleDateString('sk-SK', { day: '2-digit', month: 'short' }) : '--'} subtitle="dátum posledného" color="green" delayClass="delay-3" />
+          <StatCard icon={<Clock size={20} style={{ color: '#a855f7' }} />} title="Veľkosť" value={allFiles.length > 0 ? formatFileSize(allFiles.reduce((sum, f) => sum + (f.file_size || 0), 0)) : '0 B'} subtitle="všetky súbory spolu" color="purple" delayClass="delay-4" />
         </div>
 
         {/* Upload karta */}
@@ -1812,12 +1812,12 @@ export default function Dashboard() {
               </div>
             ) : isDragActive ? (
               <div className="flex flex-col items-center">
-                <Upload size={28} style={{ color: 'var(--accent-link)' }} className="mb-2" />
+                <Upload size={28} style={{ color: 'var(--accent-link)' }} className="mb-2 animate-pop" />
                 <p className="font-semibold text-base" style={{ color: 'var(--accent-link)' }}>Pusti súbor sem!</p>
               </div>
             ) : (
               <div className="flex flex-col items-center">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--surface-2)' }}>
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-float" style={{ background: 'var(--surface-2)' }}>
                   <Upload size={28} style={{ color: 'var(--accent-link)' }} />
                 </div>
                 <p className="font-semibold text-base" style={{ color: 'var(--text)' }}>Pretiahni súbor sem</p>
@@ -1833,9 +1833,8 @@ export default function Dashboard() {
                 <X size={14} /> Zrušiť
               </button>
               <button onClick={handleUpload}
-                className="flex items-center justify-center gap-2 text-sm px-6 py-2.5 rounded-xl font-semibold text-white flex-1"
-                style={{ background: 'var(--accent-link)' }}>
-                <Upload size={15} />
+                className="btn-primary group flex items-center justify-center gap-2 text-sm px-6 py-2.5 rounded-xl font-semibold text-white flex-1">
+                <span className="icon-shift"><Upload size={15} /></span>
                 Odoslať {selectedFiles.length > 1 ? `${selectedFiles.length} súborov` : 'súbor'}
               </button>
             </div>
@@ -1878,9 +1877,9 @@ export default function Dashboard() {
               {/* Nový priečinok */}
               {!globalSearch && !showFavorites && folderPath.length < 3 && (
                 <button onClick={() => { setShowCreateFolder(true); setFolderError(''); setNewFolderName(''); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold flex-shrink-0"
+                  className="group flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold flex-shrink-0 transition-transform hover:-translate-y-0.5"
                   style={{ background: 'var(--surface-2)', color: 'var(--accent-link)' }}>
-                  <FolderPlus size={13} /> Nový priečinok
+                  <span className="icon-shift"><FolderPlus size={13} /></span> Nový priečinok
                 </button>
               )}
               {/* Sort dropdown */}
@@ -2025,12 +2024,13 @@ export default function Dashboard() {
           {/* Priečinky grid */}
           {visibleFolders.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-              {getOrderedFolders(visibleFolders, currentFolderId).map(folder => {
+              {getOrderedFolders(visibleFolders, currentFolderId).map((folder, i) => {
                 const childCount = folders.filter(f => f.parent_id === folder.id).length;
                 const fileCount = allFiles.filter(f => f.folder_id === folder.id).length;
                 return (
                   <FolderCard key={folder.id} folder={folder} childCount={childCount} fileCount={fileCount}
                     isOwner={folder.created_by === profile?.id}
+                    delayClass={`delay-${Math.min(i + 1, 6)}`}
                     isDragOver={dragOverFolderId === folder.id}
                     isReorderOver={folderReorderOver === folder.id}
                     isDragging={draggingFolderId === folder.id}
@@ -2063,12 +2063,13 @@ export default function Dashboard() {
             <EmptyState type={showFavorites ? 'favorites' : globalSearch ? 'search' : currentFolder ? 'folder' : 'class'} />
           ) : filteredFiles.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {filteredFiles.map(file => (
+              {filteredFiles.map((file, i) => (
                 <FileCard key={file.id} file={file}
                   isOwner={file.uploaded_by === profile?.id}
                   isFavorite={favorites.includes(file.id)}
                   isSelected={bulkMode && bulkSelected.has(file.id)}
                   bulkMode={bulkMode}
+                  delayClass={`delay-${Math.min(i + 1, 6)}`}
                   onDelete={() => deleteFile(file)}
                   showFolder={globalSearch || showFavorites}
                   onPreview={openLightbox}
@@ -2266,7 +2267,7 @@ function EmptyState({ type = 'class' }) {
 
   return (
     <div className="flex flex-col items-center justify-center py-14 gap-4 animate-fade-in">
-      <div style={{ opacity: 0.7 }}>{c.svg}</div>
+      <div style={{ opacity: 0.7 }} className="animate-float">{c.svg}</div>
       <div className="text-center">
         <p className="font-bold text-base mb-1" style={{ color: 'var(--text)' }}>{c.title}</p>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{c.text}</p>
@@ -2314,13 +2315,13 @@ function UploadChart({ days }) {
 }
 
 // ─── STAT CARD ────────────────────────────────────────────────────────────────
-function StatCard({ icon, title, value, subtitle, color }) {
+function StatCard({ icon, title, value, subtitle, color, delayClass }) {
   const colorMap = { blue: 'rgba(26,58,107,0.15)', amber: 'rgba(180,100,0,0.12)', green: 'rgba(5,150,105,0.12)', purple: 'rgba(109,40,217,0.12)' };
   return (
-    <article className="rounded-3xl border p-4 shadow-card hover:shadow-card-hover transition-all duration-150"
+    <article className={`rounded-3xl border p-4 shadow-card hover:shadow-card-hover transition-all duration-150 animate-slide-up group ${delayClass || ''}`}
       style={{ background: colorMap[color] || colorMap.blue, borderColor: 'var(--border)' }}>
       <div className="flex items-center justify-between mb-3">
-        <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm" style={{ background: 'var(--surface)' }}>{icon}</div>
+        <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" style={{ background: 'var(--surface)' }}>{icon}</div>
         <span className="text-[11px] uppercase tracking-[0.18em]" style={{ color: 'var(--text-muted)' }}>{title}</span>
       </div>
       <p className="text-xl sm:text-2xl font-bold truncate" style={{ color: 'var(--text)' }}>{value}</p>
@@ -2331,10 +2332,10 @@ function StatCard({ icon, title, value, subtitle, color }) {
 
 // ─── FOLDER CARD ──────────────────────────────────────────────────────────────
 function FolderCard({ folder, childCount, fileCount, isOwner, onOpen, onDelete, onRename, onZipDownload,
-  isDragOver, isReorderOver, isDragging, isZipping,
+  isDragOver, isReorderOver, isDragging, isZipping, delayClass,
   onDragOver, onDragLeave, onDrop, onFolderDragStart, onFolderDragEnd }) {
   return (
-    <div className="group relative"
+    <div className={`group relative animate-rise ${delayClass || ''}`}
       draggable
       onDragStart={onFolderDragStart}
       onDragEnd={onFolderDragEnd}
@@ -2351,11 +2352,11 @@ function FolderCard({ folder, childCount, fileCount, isOwner, onOpen, onDelete, 
         }}>
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-1.5">
-            <span className="hidden sm:inline-flex cursor-grab opacity-0 group-hover:opacity-50 transition-opacity flex-shrink-0"
+            <span className="hidden sm:inline-flex cursor-grab opacity-0 group-hover:opacity-50 group-hover:-translate-y-0.5 transition-all"
               style={{ color: 'var(--text-dim)' }}>
               <GripVertical size={13} />
             </span>
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(180,100,0,0.2)' }}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6" style={{ background: 'rgba(180,100,0,0.2)' }}>
               <Folder size={18} style={{ color: '#f59e0b' }} />
             </div>
           </div>
@@ -2398,7 +2399,7 @@ function FolderCard({ folder, childCount, fileCount, isOwner, onOpen, onDelete, 
 }
 
 // ─── FILE CARD ────────────────────────────────────────────────────────────────
-function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview, onDownload, isFavorite, onToggleFavorite, onMove, isSelected, bulkMode, onToggleSelect, onDragStart, onDragEnd }) {
+function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview, onDownload, isFavorite, onToggleFavorite, onMove, isSelected, bulkMode, onToggleSelect, onDragStart, onDragEnd, delayClass }) {
   const date = new Date(file.created_at).toLocaleDateString('sk-SK', { day: '2-digit', month: 'short', year: 'numeric' });
   const isImage = file.file_type?.startsWith('image/');
   const isPdf = file.file_type?.includes('pdf');
@@ -2413,7 +2414,7 @@ function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview, 
   }, [file.file_name, isImage]);
 
   return (
-    <div className="file-card group relative"
+    <div className={`file-card group relative animate-slide-up ${delayClass || ''}`}
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
@@ -2445,10 +2446,10 @@ function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview, 
         <div className="flex items-center gap-1">
           {/* Hviezdička – obľúbené */}
           <button onClick={onToggleFavorite}
-            className="w-6 h-6 rounded-lg flex items-center justify-center transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+            className="w-6 h-6 rounded-lg flex items-center justify-center transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110"
             style={{ color: isFavorite ? '#f59e0b' : 'var(--text-dim)' }}
             title={isFavorite ? 'Odstrániť z obľúbených' : 'Pridať do obľúbených'}>
-            <Star size={13} fill={isFavorite ? '#f59e0b' : 'none'} />
+            <Star key={isFavorite ? 'fav' : 'unfav'} size={13} fill={isFavorite ? '#f59e0b' : 'none'} className="animate-pop" />
           </button>
           {/* Presun */}
           {isOwner && (
@@ -2490,15 +2491,15 @@ function FileCard({ file, isOwner, onDelete, showFolder, folderName, onPreview, 
         <div className="flex items-center gap-1.5">
           {(isImage || isPdf) && (
             <button onClick={() => onPreview(file)}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
+              className="group/btn flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-transform hover:-translate-y-0.5"
               style={{ background: 'rgba(139,92,246,0.12)', color: '#a855f7' }}>
-              <ZoomIn size={12} /> Náhľad
+              <ZoomIn size={12} className="transition-transform duration-300 group-hover/btn:scale-110" /> Náhľad
             </button>
           )}
           <button onClick={onDownload}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
+            className="group/btn flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-transform hover:-translate-y-0.5"
             style={{ background: 'rgba(26,58,107,0.15)', color: 'var(--accent-link)' }}>
-            <Download size={12} /> Stiahnuť
+            <Download size={12} className="transition-transform duration-300 group-hover/btn:translate-y-0.5" /> Stiahnuť
           </button>
         </div>
       </div>

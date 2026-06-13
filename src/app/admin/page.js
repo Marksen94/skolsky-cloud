@@ -773,7 +773,7 @@ export default function AdminPage() {
                 className="flex items-center gap-2 rounded-xl px-3 py-1.5 transition-colors"
                 style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)' }}>
                 <span className="text-white text-sm font-medium">{adminProfile?.first_name} {adminProfile?.last_name}</span>
-                <ChevronDown size={12} className="text-blue-300" />
+                <ChevronDown size={12} className={`text-blue-300 transition-transform duration-300 ${showUserMenu ? 'rotate-180' : ''}`} />
               </button>
               {showUserMenu && (
                 <div ref={userMenuRef} className="absolute right-0 top-full mt-2 z-50 rounded-2xl shadow-2xl py-1.5 min-w-[180px] animate-fade-in"
@@ -798,11 +798,11 @@ export default function AdminPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8 animate-slide-up">
-          <StatCard color="amber" icon={<Clock size={18} />} label="Čakajúce žiadosti" value={pending.length + deletionRequests.length} hint="Na schválenie" />
-          <StatCard color="blue" icon={<Users size={18} />} label="Schválení žiaci" value={approved.filter(u => u.status === 'approved').length} hint="Aktívni používatelia" />
-          <StatCard color="emerald" icon={<FileText size={18} />} label="Nahratých súborov" value={files.length} hint="Všetky triedy" />
-          <StatCard color="violet" icon={<Shield size={18} />} label="Aktívne triedy" value={uniqueClasses} hint="Rozdelenie používateľov" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+          <StatCard color="amber" icon={<Clock size={18} />} label="Čakajúce žiadosti" value={pending.length + deletionRequests.length} hint="Na schválenie" delayClass="delay-1" />
+          <StatCard color="blue" icon={<Users size={18} />} label="Schválení žiaci" value={approved.filter(u => u.status === 'approved').length} hint="Aktívni používatelia" delayClass="delay-2" />
+          <StatCard color="emerald" icon={<FileText size={18} />} label="Nahratých súborov" value={files.length} hint="Všetky triedy" delayClass="delay-3" />
+          <StatCard color="violet" icon={<Shield size={18} />} label="Aktívne triedy" value={uniqueClasses} hint="Rozdelenie používateľov" delayClass="delay-4" />
         </div>
 
         <div className="flex flex-wrap gap-1 mb-6 rounded-3xl p-1.5 shadow-card w-fit animate-fade-in" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
@@ -812,7 +812,7 @@ export default function AdminPage() {
               style={tab !== t ? { color: 'var(--text-muted)' } : {}}>
               {t}
               {t === 'Žiadosti' && (pending.length + deletionRequests.length) > 0 && (
-                <span className="ml-2 bg-red-500 text-white text-[10px] sm:text-xs rounded-full px-1.5 py-0.5">{pending.length + deletionRequests.length}</span>
+                <span key={pending.length + deletionRequests.length} className="ml-2 bg-red-500 text-white text-[10px] sm:text-xs rounded-full px-1.5 py-0.5 animate-pop inline-block">{pending.length + deletionRequests.length}</span>
               )}
             </button>
           ))}
@@ -825,7 +825,7 @@ export default function AdminPage() {
             </h3>
             {pending.length === 0 && deletionRequests.length === 0 ? (
               <div className="text-center py-14">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: 'rgba(5,150,105,0.1)' }}>
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3 animate-float" style={{ background: 'rgba(5,150,105,0.1)' }}>
                   <CheckCircle size={24} style={{ color: '#10b981' }} />
                 </div>
                 <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Žiadne čakajúce žiadosti. Všetko vybavené!</p>
@@ -944,7 +944,7 @@ export default function AdminPage() {
                             <button onClick={() => approveUser(user.id)} className="text-xs font-semibold" style={{ color: '#059669' }}>Schváliť</button>
                           )}
                           <button onClick={() => deleteUser(user.id, `${user.first_name} ${user.last_name}`)}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all">
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all hover:scale-110">
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -964,14 +964,14 @@ export default function AdminPage() {
               <button
                 onClick={handleExportAll}
                 disabled={exporting}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-semibold text-sm transition-all duration-200 shadow-sm"
+                className="group flex items-center gap-2 px-5 py-2.5 rounded-2xl font-semibold text-sm transition-all duration-200 shadow-sm hover:-translate-y-0.5"
                 style={isAugust31
                   ? { background: 'linear-gradient(135deg,#dc2626,#ef4444)', color: 'white', border: '1px solid rgba(220,38,38,0.5)', boxShadow: '0 0 0 3px rgba(220,38,38,0.2)' }
                   : { background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }
                 }
               >
-                <Download size={15} style={{ color: isAugust31 ? 'white' : 'var(--accent-link)' }} />
-                {exporting ? 'Exportujem...' : isAugust31 ? '⚠️ Stiahnuť všetko ako ZIP (dnes sa maže!)' : 'Stiahnuť všetky súbory ako ZIP'}
+                <span className="icon-shift"><Download size={15} style={{ color: isAugust31 ? 'white' : 'var(--accent-link)' }} /></span>
+                {exporting ? 'Exportujem...' : isAugust31 ? <><span className="animate-twinkle inline-block">⚠️</span> Stiahnuť všetko ako ZIP (dnes sa maže!)</> : 'Stiahnuť všetky súbory ako ZIP'}
               </button>
 
               {/* Export CSV žiakov */}
@@ -989,10 +989,10 @@ export default function AdminPage() {
                   document.body.appendChild(a); a.click(); document.body.removeChild(a);
                   URL.revokeObjectURL(url);
                 }}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-semibold text-sm transition-all duration-200 shadow-sm"
+                className="group flex items-center gap-2 px-5 py-2.5 rounded-2xl font-semibold text-sm transition-all duration-200 shadow-sm hover:-translate-y-0.5"
                 style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
               >
-                <FileText size={15} style={{ color: '#10b981' }} />
+                <span className="icon-shift"><FileText size={15} style={{ color: '#10b981' }} /></span>
                 Export žiakov CSV
               </button>
 
@@ -1052,7 +1052,7 @@ export default function AdminPage() {
                       <div><CloudUpload size={24} className="mx-auto mb-1" style={{ color: 'var(--accent-link)' }} /><p className="font-semibold text-sm" style={{ color: 'var(--accent-link)' }}>Pusti súbory sem!</p></div>
                     ) : (
                       <div>
-                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: 'var(--surface-3)' }}><CloudUpload size={20} style={{ color: 'var(--accent-link)' }} /></div>
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3 animate-float" style={{ background: 'var(--surface-3)' }}><CloudUpload size={20} style={{ color: 'var(--accent-link)' }} /></div>
                         <p className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Pretiahni súbory sem</p>
                         <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>alebo klikni pre výber zo zariadenia (viacero naraz)</p>
                       </div>
@@ -1070,9 +1070,9 @@ export default function AdminPage() {
                       </div>
                       {adminFolderPath.length < 3 && (
                         <button onClick={() => { setShowAdminCreateFolder(true); setAdminFolderError(''); setNewAdminFolderName(''); }}
-                          className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl"
+                          className="group flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl transition-transform hover:-translate-y-0.5"
                           style={{ background: 'var(--surface-2)', color: 'var(--accent-link)', border: '1px solid var(--border)' }}>
-                          <FolderPlus size={12} /> Nový
+                          <span className="icon-shift"><FolderPlus size={12} /></span> Nový
                         </button>
                       )}
                     </div>
@@ -1104,10 +1104,10 @@ export default function AdminPage() {
                     <div className="flex-1 overflow-y-auto" style={{ maxHeight: '260px' }}>
                       {adminVisibleFolders.length > 0 ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {adminVisibleFolders.map(folder => {
+                          {adminVisibleFolders.map((folder, i) => {
                             const childCount = uploadClassFolders.filter(f => f.parent_id === folder.id).length;
                             const isSelected = uploadFolderId === folder.id;
-                            return <AdminFolderCard key={folder.id} folder={folder} childCount={childCount} isSelected={isSelected} onOpen={() => adminNavigateToFolder(folder)} onDelete={() => adminDeleteFolder(folder)} />;
+                            return <AdminFolderCard key={folder.id} folder={folder} childCount={childCount} isSelected={isSelected} delayClass={`delay-${Math.min(i + 1, 6)}`} onOpen={() => adminNavigateToFolder(folder)} onDelete={() => adminDeleteFolder(folder)} />;
                           })}
                         </div>
                       ) : (
@@ -1183,15 +1183,15 @@ export default function AdminPage() {
                               const a = document.createElement('a');
                               a.href = url; a.download = file.original_name; a.target = '_blank';
                               document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                            }} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color: 'var(--accent-link)' }}><Download size={14} /></button>
+                            }} className="w-7 h-7 rounded-lg flex items-center justify-center transition-transform hover:scale-110" style={{ color: 'var(--accent-link)' }}><Download size={14} /></button>
                             <button
                               onClick={() => { setCopyFileModal(file); setCopyTargetClass(''); setCopyError(''); setCopySuccess(''); }}
-                              className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+                              className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:scale-110"
                               style={{ color: '#10b981', background: 'rgba(5,150,105,0.1)' }}
                               title="Skopírovať do inej triedy">
                               <Copy size={13} />
                             </button>
-                            <button onClick={() => deleteFile(file)} className="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all"><Trash2 size={14} /></button>
+                            <button onClick={() => deleteFile(file)} className="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all hover:scale-110"><Trash2 size={14} /></button>
                           </div>
                         </td>
                       </tr>
@@ -1210,7 +1210,7 @@ export default function AdminPage() {
             <div className="card shadow-card">
               <div className="flex items-center gap-3 mb-5">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(168,85,247,0.12)' }}>
-                  <Megaphone size={16} style={{ color: '#a855f7' }} />
+                  <Megaphone size={16} style={{ color: '#a855f7' }} className="animate-twinkle" />
                 </div>
                 <h3 className="font-bold" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>Nový oznam pre triedu</h3>
               </div>
@@ -1245,10 +1245,10 @@ export default function AdminPage() {
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
                   <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <button type="button" onClick={() => setNewAnnounce(p => ({ ...p, active: !p.active }))}>
+                    <button type="button" onClick={() => setNewAnnounce(p => ({ ...p, active: !p.active }))} className="transition-transform hover:scale-110">
                       {newAnnounce.active
-                        ? <ToggleRight size={24} style={{ color: '#10b981' }} />
-                        : <ToggleLeft size={24} style={{ color: 'var(--text-muted)' }} />}
+                        ? <ToggleRight key="on" size={24} style={{ color: '#10b981' }} className="animate-pop" />
+                        : <ToggleLeft key="off" size={24} style={{ color: 'var(--text-muted)' }} className="animate-pop" />}
                     </button>
                     <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{newAnnounce.active ? 'Aktívny (viditeľný)' : 'Neaktívny (skrytý)'}</span>
                   </label>
@@ -1289,10 +1289,10 @@ export default function AdminPage() {
                           <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>{new Date(a.created_at).toLocaleDateString('sk-SK')}</p>
                         </div>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <button onClick={() => toggleAnnouncement(a.id, !a.active)} title={a.active ? 'Skryť' : 'Zobraziť'}>
+                          <button onClick={() => toggleAnnouncement(a.id, !a.active)} title={a.active ? 'Skryť' : 'Zobraziť'} className="transition-transform hover:scale-110">
                             {a.active
-                              ? <ToggleRight size={20} style={{ color: '#10b981' }} />
-                              : <ToggleLeft size={20} style={{ color: 'var(--text-muted)' }} />}
+                              ? <ToggleRight key="on" size={20} style={{ color: '#10b981' }} className="animate-pop" />
+                              : <ToggleLeft key="off" size={20} style={{ color: 'var(--text-muted)' }} className="animate-pop" />}
                           </button>
                           <button onClick={() => deleteAnnouncement(a.id)}
                             className="w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 transition-all"
@@ -1315,13 +1315,13 @@ export default function AdminPage() {
   );
 }
 
-function AdminFolderCard({ folder, childCount, isSelected, onOpen, onDelete }) {
+function AdminFolderCard({ folder, childCount, isSelected, onOpen, onDelete, delayClass }) {
   return (
-    <div className="group relative">
+    <div className={`group relative animate-rise ${delayClass || ''}`}>
       <button onClick={onOpen} className="w-full text-left p-4 rounded-2xl border transition-all duration-200 hover:shadow-sm"
         style={{ borderColor: isSelected ? 'rgba(251,191,36,0.6)' : 'var(--border)', background: isSelected ? 'rgba(251,191,36,0.12)' : 'rgba(180,100,0,0.08)' }}>
         <div className="flex items-start justify-between mb-2">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(180,100,0,0.2)' }}>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6" style={{ background: 'rgba(180,100,0,0.2)' }}>
             <Folder size={20} style={{ color: '#f59e0b' }} />
           </div>
           <button type="button" onClick={e => { e.stopPropagation(); onDelete(); }}
@@ -1340,7 +1340,7 @@ function AdminFolderCard({ folder, childCount, isSelected, onOpen, onDelete }) {
   );
 }
 
-function StatCard({ icon, label, value, color, hint }) {
+function StatCard({ icon, label, value, color, hint, delayClass }) {
   const colors = {
     amber: { bg: 'rgba(251,191,36,0.1)', border: 'rgba(251,191,36,0.2)', icon: '#d97706' },
     blue:  { bg: 'rgba(26,58,107,0.1)',  border: 'rgba(26,58,107,0.2)',  icon: '#1A3A6B' },
@@ -1349,10 +1349,10 @@ function StatCard({ icon, label, value, color, hint }) {
   };
   const c = colors[color] || colors.blue;
   return (
-    <article className="rounded-3xl p-5 shadow-card hover:shadow-card-hover transition-all duration-150"
+    <article className={`group rounded-3xl p-5 shadow-card hover:shadow-card-hover transition-all duration-150 animate-slide-up ${delayClass || ''}`}
       style={{ background: c.bg, border: `1px solid ${c.border}` }}>
       <div className="flex items-center justify-between mb-3">
-        <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm" style={{ background: 'var(--surface)', color: c.icon }}>{icon}</div>
+        <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" style={{ background: 'var(--surface)', color: c.icon }}>{icon}</div>
         <span className="text-[11px] uppercase tracking-[0.18em]" style={{ color: 'var(--text-muted)' }}>{label}</span>
       </div>
       <p className="text-2xl sm:text-3xl font-bold truncate" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>{value}</p>

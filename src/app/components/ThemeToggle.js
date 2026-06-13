@@ -14,8 +14,8 @@ export default function ThemeToggle() {
       suppressHydrationWarning
     >
       {theme === 'dark'
-        ? <Sun size={16} strokeWidth={2} />
-        : <Moon size={16} strokeWidth={2} />
+        ? <Sun size={16} strokeWidth={2} className="animate-pop" />
+        : <Moon size={16} strokeWidth={2} className="animate-pop" />
       }
     </button>
   );

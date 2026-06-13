@@ -112,7 +112,7 @@ export default function LoginPage() {
 
           {/* Logo + škola */}
           <div className="flex items-center gap-4 mb-14">
-            <div className="relative">
+            <div className="relative animate-float">
               <div className="absolute inset-0 rounded-2xl blur-md opacity-40"
                 style={{ background: 'linear-gradient(135deg, #C8200A, #1565C0)' }} />
               <div className="relative w-[60px] h-[60px] bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/20 shadow-xl p-1.5">
@@ -134,13 +134,13 @@ export default function LoginPage() {
           {/* Hlavný nadpis */}
           <div className="mb-12 flex-shrink-0">
             <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-6">
-              <Sparkles size={12} className="text-yellow-400" />
+              <Sparkles size={12} className="text-yellow-400 animate-twinkle" />
               <span className="text-white/70 text-xs font-medium tracking-wide">Vzdelávanie v digitálnej dobe.</span>
             </div>
             <h2 className="text-5xl font-bold text-white leading-[1.1] mb-4" style={{ fontFamily: 'Sora, sans-serif' }}>
               Tvoje materiály,<br />
               <span className="relative inline-block">
-                <span className="relative z-10" style={{ color: '#ef6461' }}>kedykoľvek.</span>
+                <span className="relative z-10 text-gradient-animate">kedykoľvek.</span>
                 <span className="absolute bottom-1 left-0 right-0 h-[3px] rounded-full opacity-50"
                   style={{ background: 'linear-gradient(90deg, #C8200A, transparent)' }} />
               </span>
@@ -152,13 +152,13 @@ export default function LoginPage() {
 
           {/* Feature karty */}
           <div className="space-y-3 flex-1">
-            <FeatureCard icon={<BookOpen size={16} />} accent="#ef4444"
+            <FeatureCard icon={<BookOpen size={16} />} accent="#ef4444" delayClass="delay-2"
               title="Zdieľaj a čerpaj"
               desc="Nahrávaj vlastné súbory a využívaj obsah spolužiakov. Všetky predmety prehľadne na dosah ruky." />
-            <FeatureCard icon={<Shield size={16} />} accent="#3b82f6"
+            <FeatureCard icon={<Shield size={16} />} accent="#3b82f6" delayClass="delay-3"
               title="Bezpečný priestor triedy"
               desc="Každá trieda má uzavretý digitálny priestor. Vaše dokumenty zostanú iba medzi vami." />
-            <FeatureCard icon={<Users size={16} />} accent="#a855f7"
+            <FeatureCard icon={<Users size={16} />} accent="#a855f7" delayClass="delay-4"
               title="Len overení členovia"
               desc="Každého nového žiaka schvaľuje správca školy. Cudzí do systému nevstúpia." />
           </div>
@@ -183,6 +183,12 @@ export default function LoginPage() {
           backgroundImage: `radial-gradient(circle at 20% 80%, rgba(26,58,107,0.05) 0%, transparent 50%),
                             radial-gradient(circle at 80% 20%, rgba(200,32,10,0.03) 0%, transparent 50%)`
         }} />
+
+        {/* Plávajúci gradientový tvar — nadväzuje na ľavý panel */}
+        <div className="absolute top-[8%] right-[6%] w-[320px] h-[320px] rounded-full opacity-[0.07] pointer-events-none animate-float-drift"
+          style={{ background: 'radial-gradient(circle, #1A3A6B 0%, transparent 70%)' }} />
+        <div className="absolute bottom-[5%] left-[4%] w-[260px] h-[260px] rounded-full opacity-[0.05] pointer-events-none animate-float-drift"
+          style={{ background: 'radial-gradient(circle, #C8200A 0%, transparent 70%)', animationDelay: '2s', animationDirection: 'reverse' }} />
 
         {/* Prepínač temy – vpravo hore */}
         <div className="fixed top-5 right-5 z-20">
@@ -222,7 +228,7 @@ export default function LoginPage() {
                   <Image src="/logo.png" alt="Logo školy" width={36} height={36} className="object-contain" />
                 </div>
                 <h2 className="text-2xl font-bold mb-1" style={{ fontFamily: 'Sora, sans-serif', color: 'var(--text)' }}>
-                  Vitaj späť 👋
+                  Vitaj späť <span className="animate-wave">👋</span>
                 </h2>
                 <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Prihlás sa do školského cloudu</p>
               </div>
@@ -252,7 +258,7 @@ export default function LoginPage() {
                     <label className="block text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--text)' }}>
                       Heslo
                     </label>
-                    <Link href="/forgot-password" className="text-xs font-semibold hover:opacity-70 transition-opacity" style={{ color: 'var(--accent-link)' }}>
+                    <Link href="/forgot-password" className="link-underline text-xs font-semibold hover:opacity-70 transition-opacity" style={{ color: 'var(--accent-link)' }}>
                       Zabudli ste heslo?
                     </Link>
                   </div>
@@ -268,7 +274,7 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2.5 mt-1">
+                <button type="submit" disabled={loading} className="btn-primary group w-full flex items-center justify-center gap-2.5 mt-1">
                   {loading ? (
                     <>
                       <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -278,7 +284,7 @@ export default function LoginPage() {
                       Prihlasujem...
                     </>
                   ) : (
-                    <> Prihlásiť sa <ArrowRight size={15} strokeWidth={2.5} /> </>
+                    <> Prihlásiť sa <span className="icon-shift"><ArrowRight size={15} strokeWidth={2.5} /></span> </>
                   )}
                 </button>
               </form>
@@ -293,7 +299,7 @@ export default function LoginPage() {
               {/* Registrácia */}
               <div className="text-center">
                 <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>Ešte nemáš účet?</p>
-                <Link href="/register" className="block w-full py-3 rounded-xl font-semibold text-sm text-center transition-all duration-200"
+                <Link href="/register" className="block w-full py-3 rounded-xl font-semibold text-sm text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
                   style={{ background: 'var(--surface-2)', border: '1.5px solid var(--border)', color: 'var(--accent-link)' }}>
                   Zaregistruj sa
                 </Link>
@@ -316,11 +322,11 @@ export default function LoginPage() {
   );
 }
 
-function FeatureCard({ icon, accent, title, desc }) {
+function FeatureCard({ icon, accent, title, desc, delayClass }) {
   return (
-    <div className="flex gap-4 items-start p-4 rounded-2xl border transition-all duration-300 hover:bg-white/5 group"
+    <div className={`flex gap-4 items-start p-4 rounded-2xl border transition-all duration-300 hover:bg-white/5 hover:border-white/10 hover:translate-x-1 group animate-slide-up ${delayClass || ''}`}
       style={{ borderColor: 'rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.03)' }}>
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 transition-transform duration-300 group-hover:scale-105"
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6"
         style={{ background: `${accent}18`, border: `1px solid ${accent}30` }}>
         <span style={{ color: accent }}>{icon}</span>
       </div>
