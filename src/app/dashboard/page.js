@@ -1311,7 +1311,7 @@ export default function Dashboard() {
                     <div className="relative">
                       <input type={show ? 'text' : 'password'} className="input-field pr-10"
                         autoComplete={ac} placeholder={ph} value={val} onChange={e => set(e.target.value)} required />
-                      <button type="button" onClick={toggle} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
+                      <button type="button" onClick={toggle} className="toggle-btn absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
                         {show ? <EyeOff size={15} /> : <Eye size={15} />}
                       </button>
                     </div>

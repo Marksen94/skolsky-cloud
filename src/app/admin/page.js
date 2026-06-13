@@ -633,7 +633,7 @@ export default function AdminPage() {
                     autoComplete="current-password" placeholder="vaše aktuálne heslo"
                     value={currentPw} onChange={e => setCurrentPw(e.target.value)} required />
                   <button type="button" onClick={() => setShowPw(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
+                    className="toggle-btn absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
                     {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
