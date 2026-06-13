@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { supabase, MAX_FILE_SIZE, ALLOWED_TYPES, formatFileSize, getFileIcon, getSignedUrl } from '@/lib/supabase';
+import { supabase, MAX_FILE_SIZE, ALLOWED_TYPES, ALLOWED_EXTS, formatFileSize, getFileIcon, getSignedUrl } from '@/lib/supabase';
 import { useDropzone } from 'react-dropzone';
 import {
   Upload, LogOut, Trash2, Download, Clock, User, CloudUpload, BookOpen,
@@ -336,7 +336,7 @@ export default function Dashboard() {
       const content = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
       const objUrl = URL.createObjectURL(content);
       const a = document.createElement('a');
-      a.href = objUrl; a.download = `${folder.name}.zip`;
+      a.href = objUrl; a.download = `${folder.name.replace(/[\/\\:*?"<>|]/g, '_')}.zip`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(objUrl);
     } catch (err) {
@@ -884,7 +884,9 @@ export default function Dashboard() {
       const file = selectedFiles[i];
       // Nastav progress pred začiatkom uploadu tohto súboru (nie počečas)
       setUploadProgress({ current: i, total: selectedFiles.length });
-      if (!ALLOWED_TYPES.includes(file.type)) { errors.push(`${file.name}: Nepovolený typ.`); continue; }
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+      if (!ALLOWED_TYPES.includes(file.type) || !ALLOWED_EXTS.includes(fileExt)) { errors.push(`${file.name}: Nepovolený typ.`); continue; }
+      const safeOrigName = file.name.slice(0, 200);
       const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
       const path = `${profile.class}/${safeName}`;
       const { error: uploadErr } = await supabase.storage.from('class-files').upload(path, file, { cacheControl: '3600', upsert: false });
@@ -892,7 +894,7 @@ export default function Dashboard() {
       setUploadProgress({ current: i + 1, total: selectedFiles.length }); // file nahratý
       const { data: inserted, error: dbErr } = await supabase.from('files').insert({
         uploaded_by: profile.id, class: profile.class, file_name: path,
-        original_name: file.name, file_url: path, file_type: file.type, file_size: file.size,
+        original_name: safeOrigName, file_url: path, file_type: file.type, file_size: file.size,
         description: null, folder_id: currentFolder ? currentFolder.id : null,
       }).select(`*, profiles(first_name, last_name)`).single();
       if (dbErr) { await supabase.storage.from('class-files').remove([path]); errors.push(`${file.name}: ${dbErr.message}`); continue; }

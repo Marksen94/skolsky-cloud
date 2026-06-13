@@ -26,6 +26,9 @@ export const CLASSES = [
   '4.A', '4.C', '4.T', '4.G', '4.H', '4.V',
 ];
 
+// Povolené prípony súborov (dvojitá kontrola — MIME typ môže byť sfalzovaný prehliadacom)
+export const ALLOWED_EXTS = ['pdf','jpg','jpeg','png','webp','ppt','pptx','doc','docx','xls','xlsx'];
+
 // Povolené typy súborov
 export const ALLOWED_TYPES = [
   'application/pdf',

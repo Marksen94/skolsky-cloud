@@ -34,7 +34,7 @@ CREATE TABLE files (
   uploaded_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
   class TEXT NOT NULL,
   file_name TEXT NOT NULL,
-  original_name TEXT NOT NULL,
+  original_name TEXT NOT NULL CHECK (char_length(original_name) <= 255),
   file_url TEXT NOT NULL,
   file_type TEXT,
   file_size BIGINT,
@@ -43,21 +43,33 @@ CREATE TABLE files (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. POVOLENIE RLS (Row Level Security)
+-- 4. TABUĽKA OZNAMOV
+-- ============================================================
+CREATE TABLE announcements (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT,
+  message TEXT NOT NULL,
+  class TEXT NOT NULL,
+  color TEXT DEFAULT 'blue',
+  active BOOLEAN DEFAULT true,
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5. POVOLENIE RLS (Row Level Security)
 -- ============================================================
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE folders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE files ENABLE ROW LEVEL SECURITY;
+ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
 
--- 5. POLICIES PRE PROFILES
+-- 6. POLICIES PRE PROFILES
 -- ============================================================
 
--- Každý vidí len vlastný profil
 CREATE POLICY "Users can view own profile"
   ON profiles FOR SELECT
   USING (auth.uid() = id);
 
--- Admin vidí všetky profily
 CREATE POLICY "Admin can view all profiles"
   ON profiles FOR SELECT
   USING (
@@ -67,7 +79,6 @@ CREATE POLICY "Admin can view all profiles"
     )
   );
 
--- Admin môže meniť profily (schvaľovanie)
 CREATE POLICY "Admin can update profiles"
   ON profiles FOR UPDATE
   USING (
@@ -77,7 +88,6 @@ CREATE POLICY "Admin can update profiles"
     )
   );
 
--- Admin môže vymazávať profily
 CREATE POLICY "Admin can delete profiles"
   ON profiles FOR DELETE
   USING (
@@ -87,15 +97,13 @@ CREATE POLICY "Admin can delete profiles"
     )
   );
 
--- Nový používateľ môže vložiť vlastný profil
 CREATE POLICY "Users can insert own profile"
   ON profiles FOR INSERT
   WITH CHECK (auth.uid() = id);
 
--- 6. POLICIES PRE FOLDERS
+-- 7. POLICIES PRE FOLDERS
 -- ============================================================
 
--- Žiak vidí priečinky svojej triedy
 CREATE POLICY "Students view class folders"
   ON folders FOR SELECT
   USING (
@@ -104,7 +112,6 @@ CREATE POLICY "Students view class folders"
     )
   );
 
--- Admin vidí všetky priečinky
 CREATE POLICY "Admin view all folders"
   ON folders FOR SELECT
   USING (
@@ -113,7 +120,6 @@ CREATE POLICY "Admin view all folders"
     )
   );
 
--- Schválený žiak môže vytvoriť priečinok vo vlastnej triede
 CREATE POLICY "Approved students can create folders"
   ON folders FOR INSERT
   WITH CHECK (
@@ -123,7 +129,6 @@ CREATE POLICY "Approved students can create folders"
     AND created_by = auth.uid()
   );
 
--- Admin môže vytvárať priečinky v ľubovolnej triede
 CREATE POLICY "Admins can create folders"
   ON folders FOR INSERT
   WITH CHECK (
@@ -133,12 +138,10 @@ CREATE POLICY "Admins can create folders"
     AND created_by = auth.uid()
   );
 
--- Žiak môže vymazať vlastný priečinok
 CREATE POLICY "Students delete own folders"
   ON folders FOR DELETE
   USING (created_by = auth.uid());
 
--- Admin môže vymazať akýkoľvek priečinok
 CREATE POLICY "Admin delete any folder"
   ON folders FOR DELETE
   USING (
@@ -147,13 +150,11 @@ CREATE POLICY "Admin delete any folder"
     )
   );
 
--- Žiak môže premenovať vlastný priečinok
 CREATE POLICY "Students update own folders"
   ON folders FOR UPDATE
   USING (created_by = auth.uid())
   WITH CHECK (created_by = auth.uid());
 
--- Admin môže upraviť akýkoľvek priečinok
 CREATE POLICY "Admin update any folder"
   ON folders FOR UPDATE
   USING (
@@ -162,10 +163,9 @@ CREATE POLICY "Admin update any folder"
     )
   );
 
--- 7. POLICIES PRE FILES
+-- 8. POLICIES PRE FILES
 -- ============================================================
 
--- Žiak vidí súbory svojej triedy
 CREATE POLICY "Students view class files"
   ON files FOR SELECT
   USING (
@@ -174,7 +174,6 @@ CREATE POLICY "Students view class files"
     )
   );
 
--- Admin vidí všetky súbory
 CREATE POLICY "Admin view all files"
   ON files FOR SELECT
   USING (
@@ -183,7 +182,6 @@ CREATE POLICY "Admin view all files"
     )
   );
 
--- Schválený žiak môže nahrávať do vlastnej triedy
 CREATE POLICY "Approved students can upload"
   ON files FOR INSERT
   WITH CHECK (
@@ -193,12 +191,10 @@ CREATE POLICY "Approved students can upload"
     AND uploaded_by = auth.uid()
   );
 
--- Žiak môže vymazať vlastný súbor
 CREATE POLICY "Students delete own files"
   ON files FOR DELETE
   USING (uploaded_by = auth.uid());
 
--- Admin môže vymazať akýkoľvek súbor
 CREATE POLICY "Admin delete any file"
   ON files FOR DELETE
   USING (
@@ -207,13 +203,11 @@ CREATE POLICY "Admin delete any file"
     )
   );
 
--- Žiak môže presunúť vlastný súbor (zmeniť folder_id)
 CREATE POLICY "Students update own files"
   ON files FOR UPDATE
   USING (uploaded_by = auth.uid())
   WITH CHECK (uploaded_by = auth.uid());
 
--- Admin môže upraviť akýkoľvek súbor
 CREATE POLICY "Admin update any file"
   ON files FOR UPDATE
   USING (
@@ -222,15 +216,27 @@ CREATE POLICY "Admin update any file"
     )
   );
 
--- 8. STORAGE BUCKET
+-- 9. POLICIES PRE ANNOUNCEMENTS
 -- ============================================================
--- Toto vytvor manuálne v Supabase:
--- Storage > New Bucket > Názov: "class-files" > Public: ÁNO
 
--- Potom spusti tieto policies pre storage:
-INSERT INTO storage.buckets (id, name, public) VALUES ('class-files', 'class-files', true);
+-- Žiak číta len aktívne oznamy svojej triedy
+CREATE POLICY "Students read own class announcements"
+  ON announcements FOR SELECT
+  USING (
+    active = true AND
+    class = (SELECT class FROM profiles WHERE id = auth.uid() AND status = 'approved')
+  );
 
--- Žiak uploaduje len do priečinka svojej triedy (len povolené typy súboru)
+-- Admin má plný prístup
+CREATE POLICY "Admin full access announcements"
+  ON announcements FOR ALL
+  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true))
+  WITH CHECK (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true));
+
+-- 10. STORAGE BUCKET
+-- ============================================================
+INSERT INTO storage.buckets (id, name, public) VALUES ('class-files', 'class-files', false);
+
 CREATE POLICY "Students upload to own class folder"
   ON storage.objects FOR INSERT
   WITH CHECK (
@@ -243,7 +249,6 @@ CREATE POLICY "Students upload to own class folder"
     )
   );
 
--- Admin môže nahrávať súbory do ľubovolnéj triedy
 CREATE POLICY "Admin upload to any class folder"
   ON storage.objects FOR INSERT
   WITH CHECK (
@@ -256,10 +261,21 @@ CREATE POLICY "Admin upload to any class folder"
     )
   );
 
--- Verejný prístup na čítanie (ak je bucket public)
-CREATE POLICY "Public read access"
+-- Autentifikovaný prístup — žiak číta len súbory svojej triedy
+CREATE POLICY "Authenticated students read own class"
   ON storage.objects FOR SELECT
-  USING (bucket_id = 'class-files');
+  USING (
+    bucket_id = 'class-files'
+    AND auth.role() = 'authenticated'
+    AND (
+      (storage.foldername(name))[1] = (
+        SELECT class FROM profiles WHERE id = auth.uid() AND status = 'approved'
+      )
+      OR EXISTS (
+        SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true
+      )
+    )
+  );
 
 -- Admin a vlastník môžu vymazávať
 CREATE POLICY "Owner and admin can delete files"
@@ -274,19 +290,14 @@ CREATE POLICY "Owner and admin can delete files"
     )
   );
 
--- 9. VYTVOR ADMINA
+-- 11. VYTVOR ADMINA
 -- ============================================================
--- Po registrácii tvojho účtu spusti (nahraď EMAIL a USER_ID z auth.users):
 -- UPDATE profiles SET is_admin = true, status = 'approved' WHERE email = 'tvoj@email.com';
-
--- Alebo cez UUID (nájdeš v Authentication > Users v Supabase):
--- UPDATE profiles SET is_admin = true, status = 'approved' WHERE id = 'uuid-tvojho-uctu';
 
 
 -- ============================================================
 -- MIGRÁCIA — spusti ak databáza už existuje (produkcia)
 -- ============================================================
--- Ak už máš existujúcu databázu bez priečinkov, spusti toto:
 
 -- 1. Vytvor tabuľku folders (ak ešte neexistuje)
 CREATE TABLE IF NOT EXISTS folders (
@@ -303,6 +314,48 @@ ALTER TABLE files ADD COLUMN IF NOT EXISTS folder_id UUID REFERENCES folders(id)
 
 -- 2b. Pridaj deletion_requested flag do profiles (ak ešte neexistuje)
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS deletion_requested BOOLEAN DEFAULT false;
+
+-- 2c. Pridaj CHECK constraint na original_name (ak ešte neexistuje)
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'files_original_name_length'
+  ) THEN
+    ALTER TABLE files ADD CONSTRAINT files_original_name_length CHECK (char_length(original_name) <= 255);
+  END IF;
+END $$;
+
+-- 2d. Vytvor tabuľku announcements (ak ešte neexistuje)
+CREATE TABLE IF NOT EXISTS announcements (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT,
+  message TEXT NOT NULL,
+  class TEXT NOT NULL,
+  color TEXT DEFAULT 'blue',
+  active BOOLEAN DEFAULT true,
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'announcements' AND policyname = 'Students read own class announcements') THEN
+    CREATE POLICY "Students read own class announcements"
+      ON announcements FOR SELECT
+      USING (
+        active = true AND
+        class = (SELECT class FROM profiles WHERE id = auth.uid() AND status = 'approved')
+      );
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'announcements' AND policyname = 'Admin full access announcements') THEN
+    CREATE POLICY "Admin full access announcements"
+      ON announcements FOR ALL
+      USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true))
+      WITH CHECK (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true));
+  END IF;
+END $$;
 
 -- 3. Zapni RLS pre folders
 ALTER TABLE folders ENABLE ROW LEVEL SECURITY;
@@ -417,22 +470,17 @@ END $$;
 
 -- ============================================================
 -- MIGRÁCIA — Rate limiting + XSS ochrana na úrovni DB
--- Spusti v Supabase SQL Editore
 -- ============================================================
 
--- Fix 5: Rate limit — max 20 súborov za deň na profil
--- Vymaz starú INSERT policy a nahradň ju novou s COUNT checkm
 DROP POLICY IF EXISTS "Approved students can upload" ON files;
 
 CREATE POLICY "Approved students can upload (rate limited)"
   ON files FOR INSERT
   WITH CHECK (
-    -- trieda musí sediť s profilom
     class = (
       SELECT class FROM profiles WHERE id = auth.uid() AND status = 'approved'
     )
     AND uploaded_by = auth.uid()
-    -- max 20 súborov za posledných 24 hodín
     AND (
       SELECT COUNT(*) FROM files
       WHERE uploaded_by = auth.uid()
@@ -440,62 +488,36 @@ CREATE POLICY "Approved students can upload (rate limited)"
     ) < 20
   );
 
--- Fix 6: XSS ochrana — description nenávyší 300 znakov a neobsahuje HTML tagy
--- (hlavná sanitácia je na klientovi, DB je posledná línia obrany)
-ALTER TABLE files
-  DROP CONSTRAINT IF EXISTS description_safe;
-
-ALTER TABLE files
-  ADD CONSTRAINT description_safe CHECK (
-    description IS NULL OR (
-      length(description) <= 300
-      AND description NOT LIKE '%<%'
-      AND description NOT LIKE '%>%'
-    )
-  );
+ALTER TABLE files DROP CONSTRAINT IF EXISTS description_safe;
+ALTER TABLE files ADD CONSTRAINT description_safe CHECK (
+  description IS NULL OR (
+    length(description) <= 300
+    AND description NOT LIKE '%<%'
+    AND description NOT LIKE '%>%'
+  )
+);
 
 -- ============================================================
 
--- Spusti v Supabase SQL Editore
--- ============================================================
-
--- 1. Prepni bucket na privátny
 UPDATE storage.buckets SET public = false WHERE id = 'class-files';
 
--- 2. Zmaž pôvodnú verejnú READ policy
 DROP POLICY IF EXISTS "Public read access" ON storage.objects;
 
--- 3. Pridaj autentifikovaný prístup — žiak číta len súbory svojej triedy
 CREATE POLICY "Authenticated students read own class"
   ON storage.objects FOR SELECT
   USING (
     bucket_id = 'class-files'
     AND auth.role() = 'authenticated'
     AND (
-      -- žiak číta len priečinok svojej triedy
       (storage.foldername(name))[1] = (
         SELECT class FROM profiles WHERE id = auth.uid() AND status = 'approved'
       )
-      -- admin číta všetko
       OR EXISTS (
         SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true
       )
     )
   );
 
--- ============================================================
--- POZNÁMKA k signed URLs
--- ============================================================
--- Po tejto migrácii uložené file_url v tabuľke files sú neplatné
--- (staré public URL). App teraz generuje signed URL cez
--- supabase.storage.createSignedUrl(file_name, 300) pri každom
--- stiahnutí/zobrazení. Staré záznamy v DB nie je potrebné meniť.
--- ============================================================
-
--- Spusti v Supabase SQL Editore ak máš existujúcu produkciu
--- ============================================================
-
--- 1. Aktualizuj policies súborů v storage (DROP + CREATE)
 DROP POLICY IF EXISTS "Students upload to own class folder" ON storage.objects;
 CREATE POLICY "Students upload to own class folder"
   ON storage.objects FOR INSERT
@@ -509,7 +531,6 @@ CREATE POLICY "Students upload to own class folder"
     )
   );
 
--- 2. Pridaj admin upload policy (ak ešte neexistuje)
 DROP POLICY IF EXISTS "Admin upload to any class folder" ON storage.objects;
 CREATE POLICY "Admin upload to any class folder"
   ON storage.objects FOR INSERT
@@ -523,7 +544,6 @@ CREATE POLICY "Admin upload to any class folder"
     )
   );
 
--- 3. UPDATE policy pre files (presun súboru do priečinku)
 DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies WHERE tablename = 'files' AND policyname = 'Students update own files'

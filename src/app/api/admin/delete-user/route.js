@@ -5,8 +5,9 @@ export async function DELETE(request) {
   try {
     const { userId } = await request.json();
 
-    if (!userId) {
-      return NextResponse.json({ error: 'userId je povinný' }, { status: 400 });
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!userId || !UUID_RE.test(userId)) {
+      return NextResponse.json({ error: 'Neplatné userId.' }, { status: 400 });
     }
 
     // Service role klient — má plný prístup k auth.users a DB

@@ -23,10 +23,15 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Neplatná trieda.' }, { status: 400 });
     }
 
+    const cleanEmail = email.trim().slice(0, 254).toLowerCase();
     const cleanFirst = firstName.trim().slice(0, 50);
     const cleanLast = lastName.trim().slice(0, 50);
-    if (!cleanFirst || !cleanLast) {
+    if (!cleanEmail || !cleanFirst || !cleanLast) {
       return NextResponse.json({ error: 'Meno a priezvisko sú povinné.' }, { status: 400 });
+    }
+    // Základná validácia emailu
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return NextResponse.json({ error: 'Neplatný formát emailu.' }, { status: 400 });
     }
 
     const supabaseAdmin = createClient(
@@ -36,7 +41,7 @@ export async function POST(request) {
 
     // Vytvor auth používateľa
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
+      email: cleanEmail,
       password,
       email_confirm: true,
     });
@@ -53,7 +58,7 @@ export async function POST(request) {
       id: authData.user.id,
       first_name: cleanFirst,
       last_name: cleanLast,
-      email,
+      email: cleanEmail,
       class: studentClass,
       status: 'pending',
       is_admin: false,

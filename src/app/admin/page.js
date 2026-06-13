@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { supabase, CLASSES, MAX_FILE_SIZE, formatFileSize, getFileIcon, getSignedUrl } from '@/lib/supabase';
+import { supabase, CLASSES, MAX_FILE_SIZE, ALLOWED_EXTS, formatFileSize, getFileIcon, getSignedUrl } from '@/lib/supabase';
 import { useDropzone } from 'react-dropzone';
 import {
   Users, FileText, CheckCircle, XCircle, Trash2, LogOut, Shield, Clock,
@@ -541,13 +541,16 @@ export default function AdminPage() {
     let firstError = '';
     for (const file of accepted) {
       try {
+        const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+        if (!ALLOWED_EXTS.includes(fileExt)) { firstError = firstError || `„${file.name}": Nepovolená prípona.`; continue; }
+        const safeOrigName = file.name.slice(0, 200);
         const safeName = `${Date.now()}_${Math.random().toString(36).slice(2)}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
         const path = `${uploadClass}/${safeName}`;
         const { error: uploadErr } = await supabase.storage.from('class-files').upload(path, file, { cacheControl: '3600', upsert: false });
         if (uploadErr) { firstError = firstError || `„${file.name}": ${uploadErr.message}`; continue; }
         const { data: inserted, error: dbErr } = await supabase.from('files').insert({
           uploaded_by: adminProfile.id, class: uploadClass, file_name: path,
-          original_name: file.name, file_url: path, file_type: file.type,
+          original_name: safeOrigName, file_url: path, file_type: file.type,
           file_size: file.size, description: uploadDesc.trim() || null,
           folder_id: uploadFolderId || null,
         }).select('*').single();
